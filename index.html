@@ -83,7 +83,7 @@
   }
   h1{
     font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;
-    font-size:clamp(3.2rem,11vw,9rem);line-height:.96;letter-spacing:-.015em;
+    font-size:clamp(2.5rem,12vw,9rem);line-height:.98;letter-spacing:-.015em;
     text-shadow:0 2px 80px rgba(0,0,0,.9);
   }
   h1 em{
@@ -216,14 +216,16 @@
   #pin{
     position:absolute;left:0;top:0;pointer-events:none;z-index:5;
     opacity:0;transform:translate(-50%,-100%);
-    transition:opacity .3s var(--ease), left .55s var(--ease), top .55s var(--ease);
+    /* positioned via transform, not left/top: no layout, no containing-block
+       ambiguity, and it composites */
+    transition:opacity .3s var(--ease), transform .55s var(--ease);
   }
   #pin.on{opacity:1}
   #pin .card{
     transform:translateY(-14px);
     background:rgba(8,10,12,.92);backdrop-filter:blur(14px);
     border:1px solid var(--edge);border-radius:4px;
-    padding:.6rem .9rem;white-space:nowrap;
+    padding:.6rem .9rem;max-width:min(70vw,220px);
     box-shadow:0 12px 40px rgba(0,0,0,.6);
   }
   #pin .nm{
@@ -243,6 +245,20 @@
   #pin .dot{
     position:absolute;left:50%;bottom:-3px;width:6px;height:6px;margin-left:-3px;
     border-radius:50%;background:var(--teal);box-shadow:0 0 12px var(--teal);
+  }
+
+  /* On narrow screens the floating card is both fiddly to read and prone to
+     running off the edge (it is centred on the state). Below 700px it is
+     replaced by a static readout under the map, which is better on touch. */
+  #mapOut{
+    display:none;margin-top:1rem;min-height:1.2em;
+    font-family:.JetBrains Mono.,monospace;font-size:.62rem;
+    letter-spacing:.2em;text-transform:uppercase;color:var(--faint);
+  }
+  #mapOut b{color:var(--teal);font-weight:500}
+  @media (max-width:900px){
+    #pin{display:none}
+    #mapOut{display:block}
   }
 
   .maplegend{
@@ -265,7 +281,7 @@
 
   /* ── hobbies ── */
   .hobs{
-    display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));
     gap:1px;margin-top:clamp(2rem,4vw,3rem);
     background:var(--edge);border:1px solid var(--edge);
   }
@@ -290,7 +306,7 @@
   }
 
   /* ── inspiration ── */
-  .insp{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:clamp(1.4rem,3vw,2.4rem);margin-top:clamp(2rem,4vw,3rem)}
+  .insp{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:clamp(1.4rem,3vw,2.4rem);margin-top:clamp(2rem,4vw,3rem)}
   .ip{display:flex;gap:clamp(1.1rem,2.4vw,1.7rem);align-items:flex-start}
   /* Portrait frame, photo-ready: drop an <img src> in and it fills; until then
      the monogram shows through. */
@@ -579,6 +595,7 @@
       <div class="card"><span class="nm"></span><span class="sub"></span></div>
       <span class="stem"></span><span class="dot"></span>
     </div>
+    <p id="mapOut">Tap a state</p>
     <div class="maplegend">
       <span><i class="k1"></i>Been there</span>
       <span><i class="k2"></i>Not yet</span>
@@ -1926,11 +1943,25 @@ const UTS = ["Andaman and Nicobar Islands","Dadra and Nagar Haveli and Daman and
       const sr = svg.getBoundingClientRect();
       const wr = pin.offsetParent.getBoundingClientRect();
       const k  = sr.width / 1000;
-      pin.style.left = (sr.left - wr.left + cx * k) + "px";
-      pin.style.top  = (sr.top  - wr.top  + cy * k) + "px";
+      const rawX = sr.left - wr.left + cx * k;
+      const rawY = sr.top - wr.top + cy * k;
       nmEl.textContent = name;
       subEl.textContent = isUT ? 'Union Territory' : (been ? 'Been there' : 'Not yet');
       pin.className = 'on ' + (been ? 'been' : 'not');
+      const mo = document.getElementById("mapOut");
+      if (mo) mo.innerHTML = name + " — <b>" + (isUT ? "Union Territory" : been ? "Been there" : "Not yet") + "</b>";
+
+      /* Clamp AFTER the text is set, using the card's real measured width.
+         The card is centred on the point via translate(-50%), so guessing at
+         its half-width pushed long names like "Arunachal Pradesh" off the
+         left edge of a narrow screen — and that overflow widened the page. */
+      const cardW = pin.querySelector('.card').getBoundingClientRect().width;
+      const halfW = cardW / 2 + 8;
+      const minX = halfW - wr.left;                       // keep inside viewport left
+      const maxX = innerWidth - halfW - wr.left;          // and viewport right
+      const x = Math.max(minX, Math.min(maxX, rawX));
+      pin.style.transform =
+        'translate(calc(' + x.toFixed(1) + 'px - 50%), calc(' + rawY.toFixed(1) + 'px - 100%))';
 
       /* and disturb the fluid underneath, so the map is part of the surface */
       const r = p.getBoundingClientRect();
@@ -1943,6 +1974,9 @@ const UTS = ["Andaman and Nicobar Islands","Dadra and Nagar Haveli and Daman and
     };
     p.addEventListener('mouseenter', enter);
     p.addEventListener('focus', enter);
+    /* Touch devices have no hover at all, so without this the whole map is
+       dead on a phone. Tap selects; the popup stays until you tap elsewhere. */
+    p.addEventListener('click', e => { e.stopPropagation(); enter(); });
     svg.appendChild(p);
   }
 
@@ -1950,8 +1984,14 @@ const UTS = ["Andaman and Nicobar Islands","Dadra and Nagar Haveli and Daman and
     pin.classList.remove('on');
     svg.querySelectorAll('path.on').forEach(o => o.classList.remove('on'));
   };
-  svg.addEventListener('mouseleave', leave);
+  /* Only dismiss on pointer-out for devices that actually hover — on touch,
+     mouseleave fires immediately after the emulated tap and would kill the
+     popup before it could be read. */
+  if (matchMedia('(hover: hover)').matches){
+    svg.addEventListener('mouseleave', leave);
+  }
   svg.addEventListener('focusout', e => { if (!svg.contains(e.relatedTarget)) leave(); });
+  document.addEventListener('click', e => { if (!svg.contains(e.target)) leave(); });
 })();
 
 /* Scroll reveal. Sets the properties inline rather than relying on a .in class
