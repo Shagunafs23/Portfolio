@@ -1,0 +1,4 @@
+_mapdata/
+node_modules/
+*.log
+.DS_Store
