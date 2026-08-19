@@ -305,6 +305,55 @@
     color:rgba(247,244,237,.48);font-weight:300;
   }
 
+  /* ── projects ── */
+  .pjs{margin-top:clamp(2rem,4vw,3rem);border-top:1px solid var(--edge)}
+  .pj{
+    display:grid;
+    grid-template-columns:auto 1fr auto;
+    gap:clamp(1rem,3vw,2.2rem);
+    align-items:baseline;
+    padding:clamp(1.3rem,3vw,2rem) 0;
+    border-bottom:1px solid var(--edge);
+    text-decoration:none;color:inherit;
+    transition:background .5s var(--ease),padding-left .5s var(--ease);
+  }
+  .pj:hover,.pj:focus-visible{background:rgba(67,214,160,.04);padding-left:.8rem;outline:none}
+  .pj:focus-visible{box-shadow:inset 2px 0 0 var(--teal)}
+  .pj-n{
+    font-family:'JetBrains Mono',monospace;font-size:.56rem;
+    letter-spacing:.2em;color:var(--faint);padding-top:.5em;
+  }
+  .pj h3{
+    font-family:'Cormorant Garamond',serif;font-weight:300;
+    font-size:clamp(1.25rem,2.8vw,1.9rem);color:var(--ink);
+    transition:color .5s var(--ease);
+  }
+  .pj:hover h3{color:var(--teal)}
+  .pj-d{margin-top:.45rem;font-size:.83rem;line-height:1.7;color:rgba(247,244,237,.5);max-width:56ch}
+  .pj-t{margin-top:.7rem;display:flex;flex-wrap:wrap;gap:.4rem}
+  .pj-t span{
+    font-family:'JetBrains Mono',monospace;font-size:.5rem;
+    letter-spacing:.16em;text-transform:uppercase;
+    color:rgba(67,214,160,.75);
+    border:1px solid rgba(67,214,160,.22);border-radius:2px;
+    padding:.28em .55em;
+  }
+  .pj-go{
+    font-size:1rem;color:var(--faint);
+    transition:transform .5s var(--ease),color .5s var(--ease);
+  }
+  .pj:hover .pj-go{color:var(--teal);transform:translateX(5px)}
+  .pj[data-wip] .pj-go{opacity:.35}
+  .pj-wip{
+    font-family:'JetBrains Mono',monospace;font-size:.48rem;
+    letter-spacing:.18em;text-transform:uppercase;color:rgba(220,177,99,.8);
+    border:1px solid rgba(220,177,99,.3);border-radius:2px;padding:.28em .55em;
+  }
+  @media (max-width:620px){
+    .pj{grid-template-columns:auto 1fr;gap:.9rem}
+    .pj-go{display:none}
+  }
+
   /* ── inspiration ── */
   .insp{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));gap:clamp(1.4rem,3vw,2.4rem);margin-top:clamp(2rem,4vw,3rem)}
   .ip{display:flex;gap:clamp(1.1rem,2.4vw,1.7rem);align-items:flex-start}
@@ -581,6 +630,78 @@
         <span class="where">Brand Vantage — based in Bangalore</span></span>
     </li>
   </ol>
+</section>
+
+<section class="sec" id="work">
+  <p class="kicker rv">Selected work</p>
+  <h2 class="rv">Things I've <em>actually shipped</em></h2>
+  <p class="lede rv">
+    Client sites and interface work across WordPress, React and Next.js — plus the
+    fluid simulation you're looking at.
+  </p>
+  <div class="pjs rv">
+
+    <a class="pj" href="https://abilitycounts.net" target="_blank" rel="noopener noreferrer">
+      <span class="pj-n">01</span>
+      <div>
+        <h3>Ability Counts</h3>
+        <p class="pj-d">Disability services site — full build and a pre-launch QA pass covering layout, responsive behaviour and content accuracy across every page.</p>
+        <p class="pj-t"><span>WordPress</span><span>Elementor</span><span>Cloudways</span></p>
+      </div>
+      <span class="pj-go" aria-hidden="true">→</span>
+    </a>
+
+    <a class="pj" href="https://spsenergy.com.au" target="_blank" rel="noopener noreferrer">
+      <span class="pj-n">02</span>
+      <div>
+        <h3>SPS Energy</h3>
+        <p class="pj-d">Energy services site built on Hello Elementor with a custom header and footer, plus accessibility clean-up.</p>
+        <p class="pj-t"><span>WordPress</span><span>Elementor</span><span>UAE Lite</span></p>
+      </div>
+      <span class="pj-go" aria-hidden="true">→</span>
+    </a>
+
+    <a class="pj" href="https://acaoo.com.au" target="_blank" rel="noopener noreferrer">
+      <span class="pj-n">03</span>
+      <div>
+        <h3>ACAOO Orthodontics</h3>
+        <p class="pj-d">Orthodontics practice site — homepage and campaign pages, running on LiteSpeed caching.</p>
+        <p class="pj-t"><span>WordPress</span><span>LiteSpeed</span><span>Cloudways</span></p>
+      </div>
+      <span class="pj-go" aria-hidden="true">→</span>
+    </a>
+
+    <a class="pj" href="#" data-wip>
+      <span class="pj-n">04</span>
+      <div>
+        <h3>Erskine Pets <span class="pj-wip">In progress</span></h3>
+        <p class="pj-d">Veterinary practice site rebuilt from scratch in Next.js, with a design direction developed iteratively rather than from a template.</p>
+        <p class="pj-t"><span>Next.js</span><span>React</span><span>TypeScript</span></p>
+      </div>
+      <span class="pj-go" aria-hidden="true">→</span>
+    </a>
+
+    <a class="pj" href="#" data-wip>
+      <span class="pj-n">05</span>
+      <div>
+        <h3>Willow Springs <span class="pj-wip">In progress</span></h3>
+        <p class="pj-d">Homepage rebuild in React and Vite, awaiting client sign-off before the remaining pages.</p>
+        <p class="pj-t"><span>React</span><span>Vite</span></p>
+      </div>
+      <span class="pj-go" aria-hidden="true">→</span>
+    </a>
+
+    <a class="pj" href="https://github.com/smishrashopamarketing2026-wq/portfolio" target="_blank" rel="noopener noreferrer">
+      <span class="pj-n">06</span>
+      <div>
+        <h3>This page</h3>
+        <p class="pj-d">A GPU fluid simulation in WebGL2 — stable-fluids solver with BFECC advection, vorticity confinement, buoyancy and a fixed-step integrator. Driven by cursor, pen hover, scroll velocity and optional webcam hand tracking.</p>
+        <p class="pj-t"><span>WebGL2</span><span>GLSL</span><span>MediaPipe</span></p>
+      </div>
+      <span class="pj-go" aria-hidden="true">→</span>
+    </a>
+
+  </div>
 </section>
 
 <section class="sec" id="map">
