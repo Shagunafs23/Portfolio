@@ -306,31 +306,58 @@
   }
 
   /* ── projects ── */
-  .pjs{margin-top:clamp(2rem,4vw,3rem);border-top:1px solid var(--edge)}
-  .pj{
+  /* Cards, not rows: the screenshot is the point, so it gets the space. */
+  .pjs{
+    margin-top:clamp(2rem,4vw,3.4rem);
     display:grid;
-    grid-template-columns:auto 1fr auto;
-    gap:clamp(1rem,3vw,2.2rem);
-    align-items:baseline;
-    padding:clamp(1.3rem,3vw,2rem) 0;
-    border-bottom:1px solid var(--edge);
-    text-decoration:none;color:inherit;
-    transition:background .5s var(--ease),padding-left .5s var(--ease);
+    grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));
+    gap:clamp(1.6rem,3.4vw,2.8rem);
   }
-  .pj:hover,.pj:focus-visible{background:rgba(67,214,160,.04);padding-left:.8rem;outline:none}
-  .pj:focus-visible{box-shadow:inset 2px 0 0 var(--teal)}
+  .pj{
+    display:block;text-decoration:none;color:inherit;
+    transition:transform .6s var(--ease);
+  }
+  .pj:hover,.pj:focus-visible{transform:translateY(-5px);outline:none}
+
+  .pj-shot{
+    position:relative;display:block;overflow:hidden;border-radius:4px;
+    border:1px solid var(--edge);aspect-ratio:16/10;
+    background:rgba(247,244,237,.03);
+    transition:border-color .55s var(--ease),box-shadow .55s var(--ease);
+  }
+  .pj-shot img{
+    width:100%;height:100%;object-fit:cover;object-position:top center;
+    filter:saturate(.72) brightness(.78);
+    transition:filter .7s var(--ease),transform .9s var(--ease);
+  }
+  .pj-shot::after{                       /* keeps the bright shots from glaring */
+    content:'';position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,rgba(4,5,6,.10),rgba(4,5,6,.55));
+    transition:opacity .55s var(--ease);
+  }
+  .pj:hover .pj-shot{border-color:rgba(67,214,160,.55);box-shadow:0 18px 50px rgba(0,0,0,.5),0 0 34px rgba(67,214,160,.16)}
+  .pj:hover .pj-shot img{filter:saturate(1) brightness(1);transform:scale(1.045)}
+  .pj:hover .pj-shot::after{opacity:.45}
+  .pj:focus-visible .pj-shot{border-color:var(--teal)}
+
+  .pj-head{display:flex;align-items:baseline;gap:.8rem;margin-top:1.1rem}
   .pj-n{
     font-family:'JetBrains Mono',monospace;font-size:.56rem;
-    letter-spacing:.2em;color:var(--faint);padding-top:.5em;
+    letter-spacing:.2em;color:var(--faint);
   }
   .pj h3{
     font-family:'Cormorant Garamond',serif;font-weight:300;
-    font-size:clamp(1.25rem,2.8vw,1.9rem);color:var(--ink);
+    font-size:clamp(1.35rem,2.6vw,1.9rem);color:var(--ink);line-height:1.15;
     transition:color .5s var(--ease);
   }
   .pj:hover h3{color:var(--teal)}
-  .pj-d{margin-top:.45rem;font-size:.83rem;line-height:1.7;color:rgba(247,244,237,.5);max-width:56ch}
-  .pj-t{margin-top:.7rem;display:flex;flex-wrap:wrap;gap:.4rem}
+  .pj-go{
+    margin-left:auto;font-size:1rem;color:var(--faint);
+    transition:transform .5s var(--ease),color .5s var(--ease);
+  }
+  .pj:hover .pj-go{color:var(--teal);transform:translateX(5px)}
+  .pj-d{margin-top:.55rem;font-size:.85rem;line-height:1.75;color:rgba(247,244,237,.5)}
+  .pj-t{margin-top:.85rem;display:flex;flex-wrap:wrap;gap:.4rem}
   .pj-t span{
     font-family:'JetBrains Mono',monospace;font-size:.5rem;
     letter-spacing:.16em;text-transform:uppercase;
@@ -338,20 +365,25 @@
     border:1px solid rgba(67,214,160,.22);border-radius:2px;
     padding:.28em .55em;
   }
-  .pj-go{
-    font-size:1rem;color:var(--faint);
-    transition:transform .5s var(--ease),color .5s var(--ease);
+
+  /* ── skills ── */
+  .sk{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:clamp(1.6rem,3.4vw,2.8rem);margin-top:clamp(2rem,4vw,3rem)}
+  .sk-g h3{
+    font-family:'JetBrains Mono',monospace;font-size:.56rem;
+    letter-spacing:.24em;text-transform:uppercase;color:var(--faint);
+    padding-bottom:.8rem;border-bottom:1px solid var(--edge);
   }
-  .pj:hover .pj-go{color:var(--teal);transform:translateX(5px)}
-  .pj[data-wip] .pj-go{opacity:.35}
-  .pj-wip{
-    font-family:'JetBrains Mono',monospace;font-size:.48rem;
-    letter-spacing:.18em;text-transform:uppercase;color:rgba(220,177,99,.8);
-    border:1px solid rgba(220,177,99,.3);border-radius:2px;padding:.28em .55em;
+  .sk-l{margin-top:1rem;display:flex;flex-wrap:wrap;gap:.45rem}
+  .sk-l span{
+    font-family:'Inter',sans-serif;font-size:.78rem;font-weight:300;
+    color:rgba(247,244,237,.82);
+    border:1px solid var(--edge);border-radius:3px;
+    padding:.45em .8em;
+    transition:border-color .45s var(--ease),color .45s var(--ease),background .45s var(--ease),transform .45s var(--ease);
   }
-  @media (max-width:620px){
-    .pj{grid-template-columns:auto 1fr;gap:.9rem}
-    .pj-go{display:none}
+  .sk-l span:hover{
+    border-color:rgba(67,214,160,.55);color:var(--teal);
+    background:rgba(67,214,160,.07);transform:translateY(-2px);
   }
 
   /* ── inspiration ── */
@@ -636,71 +668,150 @@
   <p class="kicker rv">Selected work</p>
   <h2 class="rv">Things I've <em>actually shipped</em></h2>
   <p class="lede rv">
-    Client sites and interface work across WordPress, React and Next.js — plus the
-    fluid simulation you're looking at.
+    Nine live sites across the UAE, Saudi Arabia, India and the US — corporate,
+    e-commerce, booking and events.
   </p>
   <div class="pjs rv">
 
-    <a class="pj" href="https://abilitycounts.net" target="_blank" rel="noopener noreferrer">
-      <span class="pj-n">01</span>
-      <div>
-        <h3>Ability Counts</h3>
-        <p class="pj-d">Disability services site — full build and a pre-launch QA pass covering layout, responsive behaviour and content accuracy across every page.</p>
-        <p class="pj-t"><span>WordPress</span><span>Elementor</span><span>Cloudways</span></p>
+    <a class="pj" href="https://statetrading.ae/" target="_blank" rel="noopener noreferrer">
+      <span class="pj-shot"><img src="shots/statetrading.jpg" alt="State Trading homepage" loading="lazy" decoding="async"></span>
+      <div class="pj-head">
+        <span class="pj-n">01</span>
+        <h3>State Trading</h3>
+        <span class="pj-go" aria-hidden="true">→</span>
       </div>
-      <span class="pj-go" aria-hidden="true">→</span>
+      <div>
+        <p class="pj-d">UAE supplier serving education, research, agriculture and sustainability — commodities, lab and medical equipment, farming and renewable-energy solutions.</p>
+        <p class="pj-t"><span>WordPress</span><span>Elementor</span></p>
+      </div>
     </a>
 
-    <a class="pj" href="https://spsenergy.com.au" target="_blank" rel="noopener noreferrer">
-      <span class="pj-n">02</span>
-      <div>
-        <h3>SPS Energy</h3>
-        <p class="pj-d">Energy services site built on Hello Elementor with a custom header and footer, plus accessibility clean-up.</p>
-        <p class="pj-t"><span>WordPress</span><span>Elementor</span><span>UAE Lite</span></p>
+    <a class="pj" href="https://statetravel.ae/" target="_blank" rel="noopener noreferrer">
+      <span class="pj-shot"><img src="shots/statetravel.jpg" alt="State Travel homepage" loading="lazy" decoding="async"></span>
+      <div class="pj-head">
+        <span class="pj-n">02</span>
+        <h3>State Travel</h3>
+        <span class="pj-go" aria-hidden="true">→</span>
       </div>
-      <span class="pj-go" aria-hidden="true">→</span>
+      <div>
+        <p class="pj-d">Abu Dhabi travel agency. Flight, hotel and visa booking with holiday packages, a wallet points scheme and saved traveller profiles.</p>
+        <p class="pj-t"><span>Booking engine</span><span>Multi-currency</span></p>
+      </div>
     </a>
 
-    <a class="pj" href="https://acaoo.com.au" target="_blank" rel="noopener noreferrer">
-      <span class="pj-n">03</span>
-      <div>
-        <h3>ACAOO Orthodontics</h3>
-        <p class="pj-d">Orthodontics practice site — homepage and campaign pages, running on LiteSpeed caching.</p>
-        <p class="pj-t"><span>WordPress</span><span>LiteSpeed</span><span>Cloudways</span></p>
+    <a class="pj" href="https://federalexchange.ae/" target="_blank" rel="noopener noreferrer">
+      <span class="pj-shot"><img src="shots/federalexchange.jpg" alt="Federal Exchange homepage" loading="lazy" decoding="async"></span>
+      <div class="pj-head">
+        <span class="pj-n">03</span>
+        <h3>Federal Exchange</h3>
+        <span class="pj-go" aria-hidden="true">→</span>
       </div>
-      <span class="pj-go" aria-hidden="true">→</span>
+      <div>
+        <p class="pj-d">UAE money exchange licensed by the Central Bank — live remittance rates, branch locator and bilingual English/Arabic interface.</p>
+        <p class="pj-t"><span>WordPress</span><span>Live rates</span><span>Bilingual</span></p>
+      </div>
     </a>
 
-    <a class="pj" href="#" data-wip>
-      <span class="pj-n">04</span>
-      <div>
-        <h3>Erskine Pets <span class="pj-wip">In progress</span></h3>
-        <p class="pj-d">Veterinary practice site rebuilt from scratch in Next.js, with a design direction developed iteratively rather than from a template.</p>
-        <p class="pj-t"><span>Next.js</span><span>React</span><span>TypeScript</span></p>
+    <a class="pj" href="https://uhy-sa.com/" target="_blank" rel="noopener noreferrer">
+      <span class="pj-shot"><img src="shots/uhy.jpg" alt="UHY Al Mousa homepage" loading="lazy" decoding="async"></span>
+      <div class="pj-head">
+        <span class="pj-n">04</span>
+        <h3>UHY Al Mousa</h3>
+        <span class="pj-go" aria-hidden="true">→</span>
       </div>
-      <span class="pj-go" aria-hidden="true">→</span>
+      <div>
+        <p class="pj-d">Saudi audit, accounting and advisory firm, part of the international UHY network. Corporate site with expertise, industries and insights.</p>
+        <p class="pj-t"><span>WordPress</span><span>Bilingual</span></p>
+      </div>
     </a>
 
-    <a class="pj" href="#" data-wip>
-      <span class="pj-n">05</span>
-      <div>
-        <h3>Willow Springs <span class="pj-wip">In progress</span></h3>
-        <p class="pj-d">Homepage rebuild in React and Vite, awaiting client sign-off before the remaining pages.</p>
-        <p class="pj-t"><span>React</span><span>Vite</span></p>
+    <a class="pj" href="https://www.nutriventia.com/" target="_blank" rel="noopener noreferrer">
+      <span class="pj-shot"><img src="shots/nutriventia.jpg" alt="Nutriventia homepage" loading="lazy" decoding="async"></span>
+      <div class="pj-head">
+        <span class="pj-n">05</span>
+        <h3>Nutriventia</h3>
+        <span class="pj-go" aria-hidden="true">→</span>
       </div>
-      <span class="pj-go" aria-hidden="true">→</span>
+      <div>
+        <p class="pj-d">Nutraceutical ingredients brand — a product range of branded actives presented with heavy illustration and motion.</p>
+        <p class="pj-t"><span>WordPress</span><span>Animation</span></p>
+      </div>
     </a>
 
-    <a class="pj" href="https://github.com/smishrashopamarketing2026-wq/portfolio" target="_blank" rel="noopener noreferrer">
-      <span class="pj-n">06</span>
-      <div>
-        <h3>This page</h3>
-        <p class="pj-d">A GPU fluid simulation in WebGL2 — stable-fluids solver with BFECC advection, vorticity confinement, buoyancy and a fixed-step integrator. Driven by cursor, pen hover, scroll velocity and optional webcam hand tracking.</p>
-        <p class="pj-t"><span>WebGL2</span><span>GLSL</span><span>MediaPipe</span></p>
+    <a class="pj" href="https://nischain.com/" target="_blank" rel="noopener noreferrer">
+      <span class="pj-shot"><img src="shots/nischain.jpg" alt="National Industrial Supply homepage" loading="lazy" decoding="async"></span>
+      <div class="pj-head">
+        <span class="pj-n">06</span>
+        <h3>National Industrial Supply</h3>
+        <span class="pj-go" aria-hidden="true">→</span>
       </div>
-      <span class="pj-go" aria-hidden="true">→</span>
+      <div>
+        <p class="pj-d">Michigan material-handling specialist since 1981 — cranes, fabrication, rigging and inspection services.</p>
+        <p class="pj-t"><span>WordPress</span><span>Elementor</span></p>
+      </div>
     </a>
 
+    <a class="pj" href="https://thedungeonmerch.com/" target="_blank" rel="noopener noreferrer">
+      <span class="pj-shot"><img src="shots/dungeon.jpg" alt="The Dungeon homepage" loading="lazy" decoding="async"></span>
+      <div class="pj-head">
+        <span class="pj-n">07</span>
+        <h3>The Dungeon</h3>
+        <span class="pj-go" aria-hidden="true">→</span>
+      </div>
+      <div>
+        <p class="pj-d">Powerbuilding gymwear label. Full storefront with collections, multi-currency and multi-language checkout.</p>
+        <p class="pj-t"><span>E-commerce</span><span>Shopify</span></p>
+      </div>
+    </a>
+
+    <a class="pj" href="https://whitevelvetsilver.com/" target="_blank" rel="noopener noreferrer">
+      <span class="pj-shot"><img src="shots/whitevelvet.jpg" alt="White Velvet homepage" loading="lazy" decoding="async"></span>
+      <div class="pj-head">
+        <span class="pj-n">08</span>
+        <h3>White Velvet</h3>
+        <span class="pj-go" aria-hidden="true">→</span>
+      </div>
+      <div>
+        <p class="pj-d">925 hallmarked silver jewellery store — category and colour browsing, tiered promotions and live purchase notifications.</p>
+        <p class="pj-t"><span>E-commerce</span><span>Shopify</span></p>
+      </div>
+    </a>
+
+    <a class="pj" href="https://aga25.ametuniv.ac.in/" target="_blank" rel="noopener noreferrer">
+      <span class="pj-shot"><img src="shots/aga25.jpg" alt="IAMU AGA25 homepage" loading="lazy" decoding="async"></span>
+      <div class="pj-head">
+        <span class="pj-n">09</span>
+        <h3>IAMU AGA25</h3>
+        <span class="pj-go" aria-hidden="true">→</span>
+      </div>
+      <div>
+        <p class="pj-d">Conference site for the 25th Annual General Assembly of the International Association of Maritime Universities, hosted by AMET University, Chennai.</p>
+        <p class="pj-t"><span>WordPress</span><span>Events</span></p>
+      </div>
+    </a>
+  </div>
+</section>
+
+<section class="sec" id="skills">
+  <p class="kicker rv">Toolkit</p>
+  <h2 class="rv">What I <em>build with</em></h2>
+  <div class="sk rv">
+    <div class="sk-g">
+      <h3>Languages</h3>
+      <p class="sk-l"><span>HTML</span><span>CSS</span><span>JavaScript</span><span>Python</span><span>Java</span></p>
+    </div>
+    <div class="sk-g">
+      <h3>Frameworks</h3>
+      <p class="sk-l"><span>React</span><span>Next.js</span><span>Tailwind CSS</span><span>Node.js</span></p>
+    </div>
+    <div class="sk-g">
+      <h3>Platforms</h3>
+      <p class="sk-l"><span>WordPress</span><span>WooCommerce</span><span>Shopify</span></p>
+    </div>
+    <div class="sk-g">
+      <h3>Tooling</h3>
+      <p class="sk-l"><span>Git</span><span>GitHub</span></p>
+    </div>
   </div>
 </section>
 
