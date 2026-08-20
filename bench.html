@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Time to Target</title>
+<meta name="description" content="A sensor bench — the same timed acquisition task across wheel, touch, hand and voice, measuring time to target, overshoot and path efficiency.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#040506;
+    --ink:#f7f4ed;
+    --muted:rgba(247,244,237,.58);
+    --faint:rgba(247,244,237,.5);      /* raised from .28 — 2.23:1 failed WCAG AA */
+    --teal:#43d6a0;
+    --gold:#e8cfa0;
+    --rose:#e8a0a8;
+    --edge:rgba(247,244,237,.13);
+    --edge-hi:rgba(247,244,237,.40);
+    --ease:cubic-bezier(.22,.61,.36,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;font-weight:300;
+    overflow-x:hidden;min-height:100dvh;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wash{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 0%, rgba(67,214,160,.07) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 40% at 85% 90%, rgba(232,207,160,.045) 0%, transparent 70%);
+  }
+  .skip{
+    position:absolute;left:-9999px;top:0;z-index:99;
+    background:var(--teal);color:var(--bg);padding:.7rem 1.1rem;border-radius:0 0 8px 0;
+    font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;
+  }
+  .skip:focus{left:0}
+
+  .chrome{
+    position:relative;z-index:4;display:flex;align-items:flex-start;
+    justify-content:space-between;gap:1rem;
+    padding:clamp(1.4rem,3vw,2.4rem) clamp(1.4rem,4vw,3.2rem);
+  }
+  .mark{display:flex;align-items:center;gap:.75rem;text-decoration:none;color:var(--ink)}
+  .mark .glyph{
+    width:36px;height:36px;flex:0 0 36px;border:1px solid rgba(67,214,160,.5);border-radius:50%;
+    display:grid;place-items:center;font-family:'Cormorant Garamond',serif;font-size:.9rem;color:var(--teal);
+    box-shadow:0 0 24px rgba(67,214,160,.15), inset 0 0 15px rgba(67,214,160,.06);
+  }
+  .mark .word{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint)}
+  @media (max-width:520px){ .mark .word{display:none} }
+  .hdr-r{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;justify-content:flex-end}
+  .navlink{
+    text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:.56rem;
+    letter-spacing:.2em;text-transform:uppercase;color:var(--muted);white-space:nowrap;
+    padding:.5rem .8rem;border:1px solid var(--edge);border-radius:100px;
+    transition:color .5s var(--ease),border-color .5s var(--ease);
+  }
+  .navlink:hover{color:var(--teal);border-color:rgba(67,214,160,.42)}
+  .navlink:focus-visible{outline:1px solid var(--teal);outline-offset:3px}
+
+  .sec{
+    position:relative;z-index:3;max-width:min(1180px,94vw);margin:0 auto;
+    padding:clamp(1rem,4vh,2.5rem) clamp(1.4rem,4vw,2rem) clamp(4rem,10vh,7rem);
+  }
+  .kicker{
+    font-family:'JetBrains Mono',monospace;font-size:clamp(.56rem,.95vw,.64rem);
+    letter-spacing:.42em;text-transform:uppercase;color:var(--teal);
+    margin-bottom:clamp(1rem,2.4vw,1.5rem);display:flex;align-items:center;gap:1.1em;
+  }
+  .kicker::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(67,214,160,.35),transparent)}
+  h1{
+    font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;
+    font-size:clamp(2.2rem,6.5vw,4.6rem);line-height:1.02;letter-spacing:-.015em;max-width:16ch;
+  }
+  h1 em{font-style:italic;color:var(--gold)}
+  .dek{margin-top:clamp(.9rem,2.2vw,1.3rem);max-width:60ch;font-size:clamp(.92rem,1.4vw,1.02rem);line-height:1.66;color:var(--muted)}
+  .dek code{font-family:'JetBrains Mono',monospace;font-size:.84em;color:var(--gold);background:rgba(232,207,160,.07);padding:.1em .4em;border-radius:3px}
+
+  .lab{
+    margin-top:clamp(1.6rem,3.5vw,2.5rem);border:1px solid var(--edge);border-radius:14px;
+    background:rgba(4,5,6,.62);backdrop-filter:blur(18px);
+    padding:clamp(1.1rem,2.4vw,1.7rem);position:relative;
+  }
+
+  /* --- method picker --- */
+  .methods{display:flex;flex-wrap:wrap;gap:.5rem}
+  .m{
+    display:inline-flex;align-items:center;gap:.55rem;
+    font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);cursor:pointer;
+    border:1px solid var(--edge);border-radius:100px;padding:.6rem 1rem;
+    background:transparent;transition:all .35s var(--ease);
+  }
+  .m:hover{color:var(--ink);border-color:var(--edge-hi)}
+  .m[aria-pressed=true]{background:rgba(67,214,160,.14);border-color:rgba(67,214,160,.45);color:var(--teal)}
+  .m:focus-visible{outline:1px solid var(--teal);outline-offset:3px}
+  .m .need{font-size:.85em;color:var(--faint)}
+  .m[aria-pressed=true] .need{color:rgba(67,214,160,.7)}
+  .m[disabled]{opacity:.4;cursor:not-allowed}
+
+  /* --- the track --- */
+  .arena{
+    display:grid;gap:clamp(.9rem,2vw,1.4rem);
+    grid-template-columns:minmax(0,1fr) 200px minmax(0,215px);
+    margin-top:clamp(1rem,2.4vw,1.5rem);
+  }
+  @media (max-width:960px){ .arena{grid-template-columns:minmax(0,1fr) 170px} .stats{grid-column:1/-1} }
+  @media (max-width:640px){ .arena{grid-template-columns:minmax(0,1fr)} .surface{min-height:200px} }
+
+  .track{
+    position:relative;height:min(56vh,440px);overflow-y:auto;overscroll-behavior:contain;
+    border:1px solid var(--edge);border-radius:10px;background:rgba(247,244,237,.02);
+    scrollbar-width:thin;scrollbar-color:rgba(67,214,160,.3) transparent;
+  }
+  .track::-webkit-scrollbar{width:3px}
+  .track::-webkit-scrollbar-thumb{background:rgba(67,214,160,.3);border-radius:3px}
+  .track:focus-visible{outline:1px solid var(--teal);outline-offset:3px}
+  .para{
+    padding:clamp(1.1rem,2.4vw,1.6rem) clamp(1rem,2.4vw,1.6rem);
+    border-bottom:1px solid rgba(247,244,237,.07);
+    transition:background .3s var(--ease);
+  }
+  .para .pn{
+    font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.26em;
+    color:var(--faint);display:block;margin-bottom:.45rem;
+  }
+  .para p{font-size:.86rem;line-height:1.6;color:var(--muted);max-width:52ch}
+  .para.target{background:rgba(232,207,160,.09)}
+  .para.target .pn{color:var(--gold)}
+  .para.hit{background:rgba(67,214,160,.12)}
+  .para.hit .pn{color:var(--teal)}
+
+  /* Centre guide + tolerance band sit above the scrolling content. */
+  .guide{position:absolute;left:0;right:0;top:50%;height:0;pointer-events:none;z-index:3}
+  .guide::before{
+    content:'';position:absolute;left:0;right:0;top:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.75;
+  }
+  .tol{
+    position:absolute;left:0;right:0;pointer-events:none;z-index:2;
+    border-top:1px dashed rgba(67,214,160,.3);border-bottom:1px dashed rgba(67,214,160,.3);
+    background:rgba(67,214,160,.05);
+  }
+  .arrow{
+    position:absolute;right:8px;z-index:4;pointer-events:none;
+    font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.2em;
+    color:var(--gold);opacity:0;transition:opacity .25s var(--ease);
+  }
+  .arrow.on{opacity:.9}
+  .arrow.up{top:8px} .arrow.dn{bottom:8px}
+
+  /* --- input surface --- */
+  .surface{
+    position:relative;border:1px solid var(--edge);border-radius:10px;
+    background:rgba(247,244,237,.02);overflow:hidden;min-height:240px;
+    touch-action:none;user-select:none;-webkit-user-select:none;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .surface .sh{
+    font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--faint);text-align:center;line-height:2;padding:1rem;
+  }
+  .surface .sh b{display:block;color:var(--teal);font-weight:500}
+  .surface.pad{cursor:ns-resize}
+  .surface .zband{
+    position:absolute;left:0;right:0;background:rgba(67,214,160,.05);
+    border-top:1px dashed rgba(67,214,160,.25);border-bottom:1px dashed rgba(67,214,160,.25);
+  }
+  .surface .zlab{
+    position:absolute;left:0;right:0;text-align:center;
+    font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.24em;
+    text-transform:uppercase;color:var(--faint);
+  }
+  .surface .zlab.up{top:10px} .surface .zlab.dn{bottom:10px}
+  .surface .cursor{
+    position:absolute;left:50%;top:0;width:14px;height:14px;margin:-7px 0 0 -7px;
+    border-radius:50%;background:var(--teal);box-shadow:0 0 14px rgba(67,214,160,.7);
+    opacity:0;will-change:transform;
+  }
+  .surface .cursor.on{opacity:1}
+  .surface video{position:absolute;right:6px;bottom:6px;width:58px;border-radius:5px;opacity:0;transform:scaleX(-1);border:1px solid var(--edge)}
+  .surface video.live{opacity:.5}
+  .bars{display:flex;align-items:flex-end;gap:3px;height:52px}
+  .bars i{display:block;width:4px;height:3px;border-radius:2px;background:var(--teal);transform-origin:50% 100%}
+
+  /* --- live stats --- */
+  .stats{display:flex;flex-direction:column;gap:.05rem;justify-content:center}
+  .rd{
+    display:flex;align-items:baseline;justify-content:space-between;gap:.8rem;
+    font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);
+    padding:.38rem 0;border-bottom:1px solid rgba(247,244,237,.07);
+  }
+  .rd:last-child{border-bottom:0}
+  .rd b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums;text-align:right}
+  .rd b.hot{color:var(--teal)} .rd b.warm{color:var(--gold)} .rd b.off{color:var(--faint)}
+  .rd b.bad{color:var(--rose)}
+
+  .bar{
+    display:flex;flex-wrap:wrap;align-items:center;gap:.8rem;
+    margin-top:clamp(1rem,2.2vw,1.4rem);padding-top:clamp(1rem,2.2vw,1.4rem);
+    border-top:1px solid var(--edge);
+  }
+  .ctl{
+    display:inline-flex;align-items:center;gap:.7rem;padding:.72rem 1.3rem;
+    border:1px solid var(--edge);border-radius:100px;background:rgba(8,9,11,.4);
+    font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--muted);cursor:pointer;
+    transition:all .45s var(--ease);
+  }
+  .ctl:hover:not([disabled]){border-color:var(--edge-hi);color:var(--ink);transform:translateY(-2px)}
+  .ctl:focus-visible{outline:1px solid var(--teal);outline-offset:3px}
+  .ctl[disabled]{opacity:.45;cursor:not-allowed}
+  .ctl.go{border-color:rgba(67,214,160,.45);color:var(--teal)}
+  .ctl.stopping{border-color:rgba(232,160,168,.5);color:var(--rose)}
+  .hint{
+    font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--faint);flex:1 1 200px;min-height:1em;
+  }
+  .hint.warn{color:var(--gold)}
+
+  .tune{
+    display:grid;gap:.9rem clamp(1.2rem,3vw,2.2rem);
+    grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+    margin-top:clamp(1rem,2.2vw,1.4rem);padding-top:clamp(1rem,2.2vw,1.4rem);
+    border-top:1px solid var(--edge);
+  }
+  .ctl-row{display:flex;flex-direction:column;gap:.45rem}
+  .ctl-lab{
+    display:flex;align-items:baseline;justify-content:space-between;gap:.8rem;
+    font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--muted);
+  }
+  .ctl-lab b{color:var(--teal);font-weight:500;font-variant-numeric:tabular-nums}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:2px;
+    background:var(--edge-hi);border-radius:2px;outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+    background:var(--teal);border:2px solid var(--bg);box-shadow:0 0 10px rgba(67,214,160,.5);
+  }
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--teal);border:2px solid var(--bg)}
+  input[type=range]:focus-visible{outline:2px solid var(--teal);outline-offset:5px}
+
+  /* --- results --- */
+  .results{margin-top:clamp(2.5rem,6vh,4rem)}
+  .results h2{
+    font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;
+    font-size:clamp(1.6rem,3.6vw,2.6rem);line-height:1.1;
+  }
+  .tblwrap{margin-top:clamp(1.2rem,3vw,1.8rem);overflow-x:auto}
+  table{border-collapse:collapse;width:100%;min-width:660px}
+  th,td{
+    text-align:right;padding:.7rem .8rem;border-bottom:1px solid var(--edge);
+    font-family:'JetBrains Mono',monospace;font-size:.68rem;font-variant-numeric:tabular-nums;
+    color:var(--muted);
+  }
+  th{
+    font-size:.55rem;letter-spacing:.2em;text-transform:uppercase;color:var(--teal);
+    font-weight:400;border-bottom-color:rgba(67,214,160,.3);white-space:nowrap;
+  }
+  th:first-child,td:first-child{text-align:left;color:var(--ink)}
+  tbody tr:hover td{background:rgba(247,244,237,.03)}
+  td.best{color:var(--teal)}
+  td.worst{color:var(--rose)}
+  .empty{
+    padding:2.5rem 1rem;text-align:center;color:var(--faint);
+    font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;
+  }
+
+  .chart{margin-top:clamp(1.6rem,4vw,2.4rem);border:1px solid var(--edge);border-radius:12px;padding:clamp(1rem,2.4vw,1.5rem);background:rgba(4,5,6,.5)}
+  .chart svg{display:block;width:100%;height:auto;overflow:visible}
+  .cx{font-family:'JetBrains Mono',monospace;font-size:9px;fill:var(--faint);letter-spacing:.08em}
+  .cxl{font-family:'JetBrains Mono',monospace;font-size:9px;fill:var(--muted);letter-spacing:.12em}
+
+  .note{margin-top:clamp(1.4rem,3vw,2rem);font-size:.85rem;line-height:1.72;color:var(--muted);max-width:66ch}
+  .note b{color:var(--ink);font-weight:400}
+  .note code{font-family:'JetBrains Mono',monospace;font-size:.84em;color:var(--gold);background:rgba(232,207,160,.07);padding:.1em .4em;border-radius:3px}
+  .note + .note{margin-top:1rem}
+
+  @media (prefers-reduced-motion:reduce){ *{animation-duration:.01ms !important;transition-duration:.01ms !important} }
+</style>
+</head>
+<body>
+<a class="skip" href="#bench">Skip to the bench</a>
+<div class="wash"></div>
+
+<header class="chrome">
+  <a class="mark" href="index.html" aria-label="Back to Shagun Mishra, Web Developer">
+    <span class="glyph" aria-hidden="true">SM</span>
+    <span class="word">&larr;&nbsp;Brand&nbsp;Vantage</span>
+  </a>
+  <div class="hdr-r">
+    <a class="navlink" href="hand-scroll.html">Hand</a>
+    <a class="navlink" href="voice-scroll.html">Voice</a>
+    <a class="navlink" href="touch-scroll.html">Touch</a>
+  </div>
+</header>
+
+<main class="sec">
+  <p class="kicker">Appendix &mdash; measurement</p>
+  <h1>How long does it take to <em>arrive</em>?</h1>
+  <p class="dek">
+    Four input methods, one task: scroll until the marked paragraph sits on the centre line, and
+    hold it there. Every method drives the same integrator and is judged by the same clock, so the
+    numbers are comparable rather than anecdotal. What comes out is time to target, how often you
+    overshot, and how much of the distance you travelled was wasted &mdash; the difference between
+    a control that is fast and one that lets you <em>stop</em>.
+  </p>
+
+  <section class="lab" id="bench" aria-label="Sensor bench">
+    <div class="methods" id="methods" role="group" aria-label="Input methods to test"></div>
+
+    <div class="arena">
+      <div class="track" id="track" tabindex="0" aria-label="Scrolling track — bring the marked paragraph to the centre line">
+        <div class="tol" id="tol" aria-hidden="true"></div>
+        <div class="guide" aria-hidden="true"></div>
+        <span class="arrow up" id="arrUp" aria-hidden="true">&#9650; target above</span>
+        <span class="arrow dn" id="arrDn" aria-hidden="true">&#9660; target below</span>
+        <div id="paras"></div>
+      </div>
+
+      <div class="surface" id="surface">
+        <p class="sh" id="surfHint">Input surface<b id="surfName">Wheel</b></p>
+        <div class="zband" id="zband" hidden></div>
+        <span class="zlab up" id="zlUp" hidden>&#9650; Up</span>
+        <span class="zlab dn" id="zlDn" hidden>&#9660; Down</span>
+        <div class="cursor" id="cursor"></div>
+        <video id="vid" playsinline muted></video>
+      </div>
+
+      <div class="stats">
+        <div class="rd"><span>Method</span><b id="sMethod" class="off">&mdash;</b></div>
+        <div class="rd"><span>Trial</span><b id="sTrial" class="off">&mdash;</b></div>
+        <div class="rd"><span>Distance</span><b id="sDist" class="off">&mdash;</b></div>
+        <div class="rd"><span>Error</span><b id="sErr" class="off">&mdash;</b></div>
+        <div class="rd"><span>Elapsed</span><b id="sTime" class="off">&mdash;</b></div>
+        <div class="rd"><span>Dwell</span><b id="sDwell" class="off">&mdash;</b></div>
+        <div class="rd"><span>Overshoots</span><b id="sOver" class="off">0</b></div>
+        <div class="rd"><span>Velocity</span><b id="sVel" class="off">0</b></div>
+      </div>
+    </div>
+
+    <div class="bar">
+      <button class="ctl go" id="btnRun" type="button">Run block</button>
+      <button class="ctl" id="btnAbort" type="button" disabled>Abort</button>
+      <button class="ctl" id="btnClear" type="button">Clear results</button>
+      <button class="ctl" id="btnCopy" type="button">Copy as markdown</button>
+      <p class="hint" id="hint" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="tune">
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sTrials">Trials per method <b id="vTrials">6</b></label>
+        <input type="range" id="sTrials" min="3" max="12" step="1" value="6">
+      </div>
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sTolIn">Tolerance <b id="vTol">40 px</b></label>
+        <input type="range" id="sTolIn" min="12" max="120" step="4" value="40">
+      </div>
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sDwellIn">Dwell to confirm <b id="vDwell">400 ms</b></label>
+        <input type="range" id="sDwellIn" min="150" max="1200" step="50" value="400">
+      </div>
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sTimeout">Trial timeout <b id="vTimeout">25 s</b></label>
+        <input type="range" id="sTimeout" min="10" max="60" step="5" value="25">
+      </div>
+    </div>
+  </section>
+
+  <section class="results" aria-label="Results">
+    <h2>Results</h2>
+    <div class="tblwrap">
+      <table id="agg">
+        <thead>
+          <tr>
+            <th scope="col">Method</th>
+            <th scope="col">n</th>
+            <th scope="col">Median time</th>
+            <th scope="col">Best</th>
+            <th scope="col">Reaction</th>
+            <th scope="col">Overshoots</th>
+            <th scope="col">Peak over</th>
+            <th scope="col">Efficiency</th>
+            <th scope="col">Final error</th>
+            <th scope="col">Fails</th>
+          </tr>
+        </thead>
+        <tbody id="aggBody"><tr><td colspan="10" class="empty">No trials yet — pick methods and run a block</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="chart">
+      <svg id="chart" viewBox="0 0 620 240" role="img" aria-label="Median time to target and path efficiency by method"></svg>
+    </div>
+
+    <p class="note">
+      <b>How a trial is scored.</b> A paragraph is chosen at random from those far enough away to
+      require real travel. The clock starts when it is revealed, so reaction time is included and
+      reported separately. The trial ends when the paragraph's centre has stayed within tolerance
+      of the guide line for the dwell period &mdash; touching the target is not enough, you have
+      to <em>settle</em> on it, which is the whole point.
+    </p>
+    <p class="note">
+      <b>Overshoot</b> counts sign changes of the remaining distance after the target is first
+      crossed. <b>Efficiency</b> is the ideal distance divided by the distance actually travelled,
+      so 100% means you went straight there and 40% means you covered two and a half times further
+      than needed. <b>Peak over</b> is the furthest past the target you ever got. A method can win
+      on median time and still be unpleasant if it overshoots constantly, which is precisely what
+      the table is for.
+    </p>
+    <p class="note">
+      <b>What is being compared.</b> Every method writes a velocity into the same integrator and
+      the same <code>scrollTop</code>, so nothing wins by having a smoother scroll implementation.
+      Wheel is the baseline: it is the control everyone already has. Results live in this page
+      only &mdash; nothing is uploaded, and <b>Clear results</b> discards them.
+    </p>
+  </section>
+</main>
+
+<script>
+/* ═══ sensor bench ════════════════════════════════════════════════════════
+   One task, four input methods, one integrator. Each method is a driver that
+   writes a velocity in px/s (or applies a delta directly, for the wheel); the
+   bench owns the clock, the scoring and the scroll. Nothing a driver does can
+   affect the measurement except through that one channel. */
+
+const $ = id => document.getElementById(id);
+const track=$('track'), paras=$('paras'), tol=$('tol'), surface=$('surface'),
+      cursorEl=$('cursor'), vid=$('vid'), zband=$('zband'), zlUp=$('zlUp'), zlDn=$('zlDn'),
+      surfName=$('surfName'), surfHint=$('surfHint'), arrUp=$('arrUp'), arrDn=$('arrDn');
+const sMethod=$('sMethod'), sTrial=$('sTrial'), sDist=$('sDist'), sErr=$('sErr'),
+      sTime=$('sTime'), sDwell=$('sDwell'), sOver=$('sOver'), sVel=$('sVel');
+const btnRun=$('btnRun'), btnAbort=$('btnAbort'), btnClear=$('btnClear'), btnCopy=$('btnCopy'), hintEl=$('hint');
+
+const CFG = { trials:6, tolerance:40, dwell:400, timeout:25000 };
+
+/* ── content ──────────────────────────────────────────────────────────── */
+const LINES = [
+  'Latency is not the same as lag. Latency is how long the system takes to answer; lag is how long it feels like it took, and the second is the one people report.',
+  'A control that is fast but cannot stop is worse than one that is slow and precise, because overshoot costs a correction and a correction costs a decision.',
+  'Every input device trades range against resolution. The ones that travel furthest per unit of effort are the ones that land least accurately.',
+  'Dead bands exist because no human holds still. Remove one and the interface drifts; make it too wide and fine control disappears entirely.',
+  'The hardest part of gesture recognition is not detecting the gesture. It is refusing to detect it the rest of the time.',
+  'Position control maps where you are to where the thing is. Rate control maps where you are to how fast it moves. They feel nothing alike.',
+  'Feedback closes the loop. Without a visible response to a small movement, people make large ones, and large movements overshoot.',
+  'Fitts observed that acquisition time grows with distance and shrinks with target size, logarithmically. Nothing since has repealed it.',
+  'A confirmation dwell turns a touch into an arrival. It is the cheapest way to distinguish passing through from stopping at.',
+  'Voice has no distance. You cannot say "a bit more" and be understood as a number, which is why voice controls latch states rather than nudge values.',
+  'Inertia is a memory of intent. Keeping velocity after release is what makes a throw feel like it went where it was aimed.',
+  'Smoothing that adapts to speed is the difference between a cursor that shakes and one that lags. Fixed smoothing must choose.',
+  'The compositor decides who owns a gesture before your code runs. Declaring intent in CSS is not a style choice, it is arbitration.',
+  'Measuring an interface changes what you build. Numbers make the tradeoff visible, and a visible tradeoff can be argued about.',
+  'Every sensor on this site produces a velocity. The differences people feel are entirely in how that velocity is decided.',
+  'An interface that works only when conditions are perfect has not been engineered, it has been demonstrated.',
+  'Recovery matters more than accuracy. Systems that fail invisibly and recover silently feel reliable even when they are not.',
+  'The last ten pixels take longer than the first thousand. That is not a bug in the control, it is the shape of the task.'
+];
+
+paras.innerHTML = LINES.map((t,i) =>
+  '<article class="para" id="p'+i+'"><span class="pn">' + String(i+1).padStart(2,'0') +
+  '</span><p>' + t + '</p></article>').join('');
+const paraEls = LINES.map((_,i) => $('p'+i));
+
+/* ── shared scroll integrator ─────────────────────────────────────────── */
+let vel = 0;                 // px/s, positive = scrolling up
+let integrator = 'ease';     // 'ease' | 'friction'
+let easeK = 0.14, fricK = 0.95, targetVel = 0;
+
+function maxScroll(){ return Math.max(0, track.scrollHeight - track.clientHeight); }
+function applyDelta(px){
+  const before = track.scrollTop;
+  track.scrollTop = Math.max(0, Math.min(maxScroll(), before + px));
+  return track.scrollTop - before;
+}
+
+/* Distance from the target paragraph's centre to the guide line. Positive
+   means the target is BELOW the line, so the track must scroll down. */
+function targetError(){
+  if (activeTarget < 0) return 0;
+  const el = paraEls[activeTarget];
+  const tr = track.getBoundingClientRect();
+  const er = el.getBoundingClientRect();
+  return (er.top + er.height/2) - (tr.top + tr.height/2);
+}
+
+/* ── drivers ──────────────────────────────────────────────────────────── */
+/* Every driver: {id,label,need,available(),start(),stop(),frame(dt)} where
+   frame() sets targetVel (px/s) or calls applyDelta directly. */
+const drivers = {};
+
+/* wheel — the baseline everyone already has */
+drivers.wheel = {
+  id:'wheel', label:'Wheel', need:'baseline', integrator:'direct',
+  available: () => true,
+  start(){ track.addEventListener('wheel', this.onWheel, {passive:false}); surfaceMode('none','Wheel','Scroll with the wheel or trackpad'); },
+  stop(){ track.removeEventListener('wheel', this.onWheel, {passive:false}); },
+  onWheel(e){ if (!running) return; e.preventDefault(); applyDelta(e.deltaY); mark(e.deltaY); },
+  frame(){}
+};
+
+/* touch / pointer — zone throttle, identical law to the touch page */
+drivers.touch = {
+  id:'touch', label:'Touch', need:'pointer', integrator:'ease',
+  y:0.5, down:false, maxV:2400, dead:0.10, exp:1.6, reach:0.42,
+  available: () => !!window.PointerEvent,
+  start(){
+    surfaceMode('pad','Touch','Press and hold above or below centre');
+    surface.addEventListener('pointerdown', this.d = e => {
+      this.down = true; surface.setPointerCapture(e.pointerId); this.move(e); e.preventDefault(); });
+    surface.addEventListener('pointermove', this.m = e => { if (this.down) this.move(e); });
+    surface.addEventListener('pointerup', this.u = e => { this.down = false; cursorEl.classList.remove('on'); });
+    surface.addEventListener('pointercancel', this.u);
+  },
+  move(e){
+    const r = surface.getBoundingClientRect();
+    this.y = Math.max(0, Math.min(1, (e.clientY - r.top)/r.height));
+    cursorEl.classList.add('on');
+    cursorEl.style.transform = 'translateY(' + (this.y*r.height).toFixed(1) + 'px)';
+  },
+  stop(){
+    surface.removeEventListener('pointerdown', this.d);
+    surface.removeEventListener('pointermove', this.m);
+    surface.removeEventListener('pointerup', this.u);
+    surface.removeEventListener('pointercancel', this.u);
+    this.down = false;
+  },
+  frame(){
+    if (!this.down){ targetVel = 0; return; }
+    const off = 0.5 - this.y, mag = Math.abs(off) - this.dead;
+    if (mag <= 0){ targetVel = 0; return; }
+    const norm = Math.min(1, mag / (this.reach - this.dead));
+    targetVel = Math.sign(off) * Math.pow(norm, this.exp) * this.maxV;
+  }
+};
+
+/* hand — hold mode, the position throttle from the hand page */
+drivers.hand = {
+  id:'hand', label:'Hand', need:'camera', integrator:'ease',
+  lm:null, stream:null, y:0.5, active:false, lastVT:-1, miss:0, raf:0,
+  maxV:2600, dead:0.08, exp:1.7, reach:0.40,
+  available: () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+  async start(){
+    surfaceMode('pad','Hand','Hold your hand above or below centre');
+    hint('Allow camera access when asked');
+    this.stream = await navigator.mediaDevices.getUserMedia({video:{width:{ideal:640},height:{ideal:480},facingMode:'user'},audio:false});
+    vid.srcObject = this.stream; await vid.play(); vid.classList.add('live');
+    hint('Loading hand model…');
+    const v = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14');
+    const fs = await v.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+    const o = {baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',delegate:'GPU'},runningMode:'VIDEO',numHands:1};
+    try { this.lm = await v.HandLandmarker.createFromOptions(fs,o); }
+    catch { o.baseOptions.delegate='CPU'; this.lm = await v.HandLandmarker.createFromOptions(fs,o); }
+    hint('Hand tracking live');
+    this.loop();
+  },
+  loop(){
+    if (!this.lm) return;
+    if (vid.readyState >= 2 && vid.currentTime !== this.lastVT){
+      this.lastVT = vid.currentTime;
+      let res=null; try { res = this.lm.detectForVideo(vid, performance.now()); } catch {}
+      if (!res || !res.landmarks || !res.landmarks.length){
+        if (++this.miss > 6){ this.active = false; cursorEl.classList.remove('on'); }
+      } else {
+        this.miss = 0; this.active = true;
+        const l = res.landmarks[0];
+        this.y = (l[0].y + l[9].y)/2;
+        cursorEl.classList.add('on');
+        cursorEl.style.transform = 'translateY(' + (this.y*surface.clientHeight).toFixed(1) + 'px)';
+      }
+    }
+    if ('requestVideoFrameCallback' in vid) vid.requestVideoFrameCallback(()=>this.loop());
+    else this.raf = requestAnimationFrame(()=>this.loop());
+  },
+  stop(){
+    cancelAnimationFrame(this.raf);
+    if (this.stream){ this.stream.getTracks().forEach(t=>t.stop()); this.stream=null; }
+    if (this.lm){ try{ this.lm.close(); }catch{} this.lm=null; }
+    vid.classList.remove('live'); vid.srcObject=null; this.active=false; this.lastVT=-1;
+  },
+  frame(){
+    if (!this.active){ targetVel = 0; return; }
+    const off = 0.5 - this.y, mag = Math.abs(off) - this.dead;
+    if (mag <= 0){ targetVel = 0; return; }
+    const norm = Math.min(1, mag / (this.reach - this.dead));
+    targetVel = Math.sign(off) * Math.pow(norm, this.exp) * this.maxV;
+  }
+};
+
+/* voice — latched direction, as on the voice page */
+drivers.voice = {
+  id:'voice', label:'Voice', need:'mic', integrator:'ease',
+  rec:null, listening:false, dir:0, speed:1400, consumed:new Map(),
+  WORDS:{up:'up',upward:'up',app:'up',cup:'up',hop:'up',ups:'up',higher:'up',
+         down:'down',dawn:'down',town:'down',done:'down',lower:'down',
+         stop:'stop',halt:'stop',pause:'stop',freeze:'stop',wait:'stop',enough:'stop'},
+  available: () => !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+  start(){
+    surfaceMode('bars','Voice','Say “up”, “down”, “stop”');
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    this.listening = true; this.dir = 0; this.consumed.clear();
+    const build = () => {
+      const r = new SR();
+      r.continuous = true; r.interimResults = true; r.maxAlternatives = 6; r.lang = 'en-US';
+      r.onresult = e => {
+        for (let i=e.resultIndex;i<e.results.length;i++){
+          const res = e.results[i];
+          if (!res.isFinal) continue;
+          const alts=[]; for (let a=0;a<res.length;a++) alts.push((res[a].transcript||'').toLowerCase());
+          let seq=[];
+          for (const t of alts){ const s=[]; for (const w of t.split(/\s+/)){ const c=this.WORDS[w.replace(/[^a-z]/g,'')]; if(c) s.push(c); } if (s.length>seq.length) seq=s; }
+          if (alts.some(t=>t.split(/\s+/).some(w=>this.WORDS[w.replace(/[^a-z]/g,'')]==='stop'))) seq = seq.map(c=>c==='top'?'stop':c);
+          const done = this.consumed.get(i)||0;
+          for (let k=done;k<seq.length;k++){
+            const c = seq[k];
+            this.dir = c==='up' ? 1 : c==='down' ? -1 : 0;
+            hint('heard: ' + c);
+          }
+          this.consumed.set(i, seq.length);
+        }
+      };
+      r.onend = () => { if (this.listening) { try{ this.rec.start(); }catch{} } };
+      r.onerror = e => { if (e.error==='not-allowed') hint('Microphone blocked', true); };
+      return r;
+    };
+    this.rec = build();
+    try { this.rec.start(); } catch {}
+    hint('Say “up”, “down” or “stop”');
+  },
+  stop(){
+    this.listening = false; this.dir = 0;
+    if (this.rec){ try{ this.rec.onend=null; this.rec.abort(); }catch{} this.rec=null; }
+  },
+  frame(){ targetVel = this.dir * this.speed; }
+};
+
+const ORDER = ['wheel','touch','hand','voice'];
+
+/* ── surface presentation ─────────────────────────────────────────────── */
+function surfaceMode(kind, name, hintText){
+  surfName.textContent = name;
+  surfHint.firstChild.textContent = hintText ? hintText + ' ' : 'Input surface ';
+  surface.classList.toggle('pad', kind === 'pad');
+  const showZones = kind === 'pad';
+  zband.hidden = !showZones; zlUp.hidden = !showZones; zlDn.hidden = !showZones;
+  if (showZones){
+    const d = kind === 'pad' ? 0.10 : 0;
+    zband.style.top = ((0.5-d)*100)+'%'; zband.style.height = (d*2*100)+'%';
+  }
+  const bars = surface.querySelector('.bars');
+  if (kind === 'bars' && !bars){
+    const b = document.createElement('div'); b.className='bars';
+    for (let i=0;i<11;i++) b.appendChild(document.createElement('i'));
+    surface.appendChild(b);
+  } else if (kind !== 'bars' && bars){ bars.remove(); }
+  cursorEl.classList.remove('on');
+}
+
+function hint(m, warn){ hintEl.textContent = m||''; hintEl.classList.toggle('warn', !!warn); }
+
+/* ── bench state ──────────────────────────────────────────────────────── */
+let selected = new Set(['wheel','touch']);
+let running = false, aborting = false;
+let queue = [], activeTarget = -1, driver = null;
+let trial = null;
+const rows = [];   // completed trial records
+
+function mark(delta){ if (trial) trial.path += Math.abs(delta); }
+
+/* ── method chips ─────────────────────────────────────────────────────── */
+const methodsEl = $('methods');
+function renderMethods(){
+  methodsEl.innerHTML = ORDER.map(id => {
+    const d = drivers[id], ok = d.available();
+    return '<button class="m" type="button" data-m="'+id+'" aria-pressed="'+selected.has(id)+'"'+
+           (ok?'':' disabled title="not available in this browser"')+'>'+
+           d.label+' <span class="need">'+(ok?d.need:'unavailable')+'</span></button>';
+  }).join('');
+  methodsEl.querySelectorAll('.m').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.m;
+    if (selected.has(id)) selected.delete(id); else selected.add(id);
+    b.setAttribute('aria-pressed', String(selected.has(id)));
+    btnRun.disabled = selected.size === 0 || running;
+  }));
+}
+renderMethods();
+
+/* ── sliders ──────────────────────────────────────────────────────────── */
+function bind(id, out, key, fmt, scale){
+  const s=$(id), o=$(out);
+  const sync=()=>{ CFG[key]=parseFloat(s.value)*(scale||1); o.textContent=fmt(CFG[key]); if(key==='tolerance') drawTol(); };
+  s.addEventListener('input', sync); sync();
+}
+bind('sTrials','vTrials','trials', n=>String(n));
+bind('sTolIn','vTol','tolerance', n=>Math.round(n)+' px');
+bind('sDwellIn','vDwell','dwell', n=>Math.round(n)+' ms');
+bind('sTimeout','vTimeout','timeout', n=>Math.round(n/1000)+' s', 1000);
+
+function drawTol(){
+  const h = track.clientHeight;
+  tol.style.top = (h/2 - CFG.tolerance) + 'px';
+  tol.style.height = (CFG.tolerance*2) + 'px';
+}
+drawTol();
+addEventListener('resize', drawTol);
+
+/* ── trial protocol ───────────────────────────────────────────────────── */
+function clearHighlights(){ paraEls.forEach(e => e.classList.remove('target','hit')); }
+
+function pickTarget(){
+  /* Only paragraphs far enough from the current position to require travel,
+     so a trial can never be won by not moving. */
+  const cand = [];
+  for (let i=0;i<paraEls.length;i++){
+    const save = activeTarget; activeTarget = i;
+    const d = Math.abs(targetError()); activeTarget = save;
+    if (d > CFG.tolerance * 6) cand.push({i, d});
+  }
+  if (!cand.length) return Math.floor(Math.random()*paraEls.length);
+  return cand[Math.floor(Math.random()*cand.length)].i;
+}
+
+function startTrial(methodId, n, total){
+  activeTarget = pickTarget();
+  clearHighlights();
+  paraEls[activeTarget].classList.add('target');
+  const d0 = targetError();
+  trial = {
+    method: methodId, n, total, t0: performance.now(),
+    ideal: Math.abs(d0), startErr: d0, path: 0, over: 0, peakOver: 0,
+    reacted: 0, crossed: false, lastSign: Math.sign(d0),
+    inTolSince: 0, done: false, fail: false, startTop: track.scrollTop
+  };
+  sTrial.textContent = n + ' / ' + total; sTrial.className = '';
+  sMethod.textContent = drivers[methodId].label; sMethod.className = 'hot';
+  armWatchdog();
+}
+
+function finishTrial(fail){
+  if (!trial || trial.done) return;
+  trial.done = true;
+  clearTimeout(watchdog);
+  const ms = performance.now() - trial.t0;
+  rows.push({
+    method: trial.method, ms, fail: !!fail,
+    reaction: trial.reacted ? trial.reacted - trial.t0 : null,
+    ideal: trial.ideal, path: trial.path,
+    eff: trial.path > 0 ? Math.min(1, trial.ideal / trial.path) : 0,
+    over: trial.over, peakOver: trial.peakOver,
+    finalErr: Math.abs(targetError())
+  });
+  if (!fail){ paraEls[activeTarget].classList.remove('target'); paraEls[activeTarget].classList.add('hit'); }
+  renderResults();
+}
+
+async function runBlock(){
+  /* Refuse rather than produce numbers that are not measurements. */
+  if (document.visibilityState === 'hidden'){
+    hint('Bring this tab to the front — frames are parked while it is hidden', true);
+    return;
+  }
+  running = true; aborting = false;
+  btnRun.disabled = true; btnAbort.disabled = false; btnRun.classList.remove('go');
+  for (const id of ORDER){
+    if (!selected.has(id) || aborting) continue;
+    driver = drivers[id];
+    try { await driver.start(); }
+    catch (e){ hint(driver.label + ' unavailable: ' + (e && e.name || 'error'), true); driver.stop(); driver = null; continue; }
+
+    for (let n=1; n<=CFG.trials && !aborting; n++){
+      integrator = driver.integrator;
+      vel = 0; targetVel = 0;
+      startTrial(id, n, CFG.trials);
+      await new Promise(res => { trial.resolve = res; });
+      await new Promise(r => setTimeout(r, 450));   // brief gap between trials
+    }
+    driver.stop(); driver = null;
+  }
+  running = false; activeTarget = -1; trial = null;
+  clearHighlights();
+  btnRun.disabled = selected.size === 0; btnAbort.disabled = true; btnRun.classList.add('go');
+  sMethod.textContent='—'; sMethod.className='off'; sTrial.textContent='—'; sTrial.className='off';
+  hint(aborting ? 'Block aborted' : 'Block complete');
+}
+
+btnRun.addEventListener('click', () => { if (!running) runBlock(); });
+btnAbort.addEventListener('click', () => {
+  aborting = true;
+  if (trial && !trial.done){ finishTrial(true); trial.resolve && trial.resolve(); }
+});
+btnClear.addEventListener('click', () => { rows.length = 0; renderResults(); hint('Results cleared'); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && running) btnAbort.click(); });
+
+/* ── main loop ────────────────────────────────────────────────────────── */
+let lastT = performance.now();
+function tick(now){
+  const dt = Math.min((now - lastT)/1000, 0.05);
+  lastT = now;
+
+  if (driver) driver.frame(dt);
+
+  if (integrator === 'ease'){
+    vel += (targetVel - vel) * easeK;
+    if (Math.abs(vel) < 0.5) vel = 0;
+  } else if (integrator === 'friction'){
+    vel *= Math.pow(fricK, dt*60);
+    if (Math.abs(vel) < 8) vel = 0;
+  } else { vel = 0; }   /* direct drivers move scrollTop themselves */
+
+  if (vel !== 0){
+    const moved = applyDelta(-vel*dt);
+    mark(moved);
+    if (moved === 0) vel = 0;
+  }
+
+  if (trial && !trial.done) scoreFrame(now);
+  paintLive();
+  requestAnimationFrame(tick);
+}
+
+function scoreFrame(now){
+  const err = targetError();
+  const a = Math.abs(err);
+
+  if (!trial.reacted && Math.abs(track.scrollTop - trial.startTop) > 2) trial.reacted = now;
+
+  const sign = Math.sign(err);
+  if (sign !== 0 && trial.lastSign !== 0 && sign !== trial.lastSign){
+    trial.crossed = true;
+    trial.over++;
+  }
+  if (sign !== 0) trial.lastSign = sign;
+  if (trial.crossed) trial.peakOver = Math.max(trial.peakOver, a);
+
+  if (a <= CFG.tolerance){
+    if (!trial.inTolSince) trial.inTolSince = now;
+    if (now - trial.inTolSince >= CFG.dwell){
+      finishTrial(false);
+      trial.resolve && trial.resolve();
+      return;
+    }
+  } else trial.inTolSince = 0;
+
+  if (now - trial.t0 > CFG.timeout){
+    finishTrial(true);
+    trial.resolve && trial.resolve();
+  }
+}
+
+/* A hidden tab parks requestAnimationFrame, which froze the whole protocol:
+   scoreFrame stopped running, so the timeout never fired and a trial could sit
+   at 57s against a 25s limit. Two consequences, both handled here.
+
+   First, the timeout gets a watchdog that does not depend on frames. Second —
+   and this is the part that matters for an instrument — any trial spanning a
+   visibility change is thrown away rather than recorded. Its clock ran while
+   nothing was rendering, so the number would be fiction, and a fiction in a
+   results table is worse than a missing row. */
+let watchdog = 0;
+function armWatchdog(){
+  clearTimeout(watchdog);
+  watchdog = setTimeout(() => {
+    if (trial && !trial.done && running){
+      finishTrial(true);
+      trial.resolve && trial.resolve();
+    }
+  }, CFG.timeout + 500);
+}
+
+function voidTrial(reason){
+  if (!trial || trial.done) return;
+  trial.done = true; trial.voided = true;
+  clearHighlights();
+  trial.resolve && trial.resolve();
+  hint(reason, true);
+}
+
+addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'hidden' || !running) return;
+  aborting = true;
+  voidTrial('Block stopped — a timing benchmark cannot measure a hidden tab');
+});
+
+function paintLive(){
+  const err = trial && !trial.done ? targetError() : null;
+  if (err === null){
+    sDist.textContent='—'; sDist.className='off';
+    sErr.textContent='—'; sErr.className='off';
+    sTime.textContent='—'; sTime.className='off';
+    sDwell.textContent='—'; sDwell.className='off';
+    arrUp.classList.remove('on'); arrDn.classList.remove('on');
+  } else {
+    const a = Math.abs(err);
+    sDist.textContent = Math.round(trial.ideal) + ' px'; sDist.className = '';
+    sErr.textContent = (err>=0?'+':'−') + Math.round(a) + ' px';
+    sErr.className = a <= CFG.tolerance ? 'hot' : 'warm';
+    sTime.textContent = ((performance.now()-trial.t0)/1000).toFixed(1)+' s'; sTime.className='';
+    const dw = trial.inTolSince ? Math.min(CFG.dwell, performance.now()-trial.inTolSince) : 0;
+    sDwell.textContent = Math.round(dw) + ' ms'; sDwell.className = dw>0 ? 'hot' : 'off';
+    sOver.textContent = String(trial.over); sOver.className = trial.over ? 'bad' : 'off';
+    arrUp.classList.toggle('on', err < -CFG.tolerance);
+    arrDn.classList.toggle('on', err > CFG.tolerance);
+  }
+  sVel.textContent = Math.abs(vel) < 1 ? '0' : (vel>0?'+':'−') + (Math.abs(vel)/1000).toFixed(2)+'k';
+  sVel.className = Math.abs(vel) < 1 ? 'off' : 'warm';
+}
+
+/* ── results ──────────────────────────────────────────────────────────── */
+const median = a => { if (!a.length) return 0; const s=[...a].sort((x,y)=>x-y); const m=s.length>>1;
+  return s.length%2 ? s[m] : (s[m-1]+s[m])/2; };
+
+function aggregate(){
+  const out = [];
+  for (const id of ORDER){
+    const all = rows.filter(r => r.method === id);
+    if (!all.length) continue;
+    const ok = all.filter(r => !r.fail);
+    out.push({
+      id, label: drivers[id].label, n: all.length, fails: all.length - ok.length,
+      med: median(ok.map(r=>r.ms)),
+      best: ok.length ? Math.min(...ok.map(r=>r.ms)) : 0,
+      react: median(ok.filter(r=>r.reaction!=null).map(r=>r.reaction)),
+      over: ok.length ? ok.reduce((s,r)=>s+r.over,0)/ok.length : 0,
+      peak: ok.length ? median(ok.map(r=>r.peakOver)) : 0,
+      eff: ok.length ? ok.reduce((s,r)=>s+r.eff,0)/ok.length : 0,
+      err: ok.length ? median(ok.map(r=>r.finalErr)) : 0
+    });
+  }
+  return out;
+}
+
+function renderResults(){
+  const agg = aggregate();
+  const body = $('aggBody');
+  if (!agg.length){
+    body.innerHTML = '<tr><td colspan="10" class="empty">No trials yet — pick methods and run a block</td></tr>';
+    drawChart([]); return;
+  }
+  const bestMed = Math.min(...agg.map(a=>a.med||Infinity));
+  const worstMed = Math.max(...agg.map(a=>a.med||0));
+  body.innerHTML = agg.map(a =>
+    '<tr><td>'+a.label+'</td><td>'+a.n+'</td>'+
+    '<td class="'+(a.med===bestMed?'best':a.med===worstMed?'worst':'')+'">'+(a.med/1000).toFixed(2)+' s</td>'+
+    '<td>'+(a.best/1000).toFixed(2)+' s</td>'+
+    '<td>'+Math.round(a.react)+' ms</td>'+
+    '<td>'+a.over.toFixed(1)+'</td>'+
+    '<td>'+Math.round(a.peak)+' px</td>'+
+    '<td>'+Math.round(a.eff*100)+'%</td>'+
+    '<td>'+Math.round(a.err)+' px</td>'+
+    '<td>'+(a.fails?'<span style="color:var(--rose)">'+a.fails+'</span>':'0')+'</td></tr>').join('');
+  drawChart(agg);
+}
+
+function drawChart(agg){
+  const svg = $('chart');
+  if (!agg.length){ svg.innerHTML = '<text class="cx" x="10" y="120">no data</text>'; return; }
+  const X0=76, X1=600, Y0=22, Y1=170, n=agg.length;
+  const maxMed = Math.max(...agg.map(a=>a.med)) || 1;
+  const slot = (X1-X0)/n, bw = Math.min(64, slot*0.34);
+  const p = [];
+  p.push('<line x1="'+X0+'" y1="'+Y1+'" x2="'+X1+'" y2="'+Y1+'" stroke="rgba(247,244,237,.25)"/>');
+  p.push('<text class="cxl" x="'+X0+'" y="14">median time (bar) · efficiency (dot)</text>');
+  agg.forEach((a,i) => {
+    const cx = X0 + slot*i + slot/2;
+    const h = (a.med/maxMed)*(Y1-Y0);
+    p.push('<rect x="'+(cx-bw).toFixed(1)+'" y="'+(Y1-h).toFixed(1)+'" width="'+bw+'" height="'+h.toFixed(1)+
+           '" fill="rgba(67,214,160,.55)" rx="2"/>');
+    p.push('<text class="cx" x="'+cx.toFixed(1)+'" y="'+(Y1-h-6).toFixed(1)+'" text-anchor="middle">'+(a.med/1000).toFixed(2)+'s</text>');
+    const ey = Y1 - a.eff*(Y1-Y0);
+    p.push('<circle cx="'+(cx+bw*0.65).toFixed(1)+'" cy="'+ey.toFixed(1)+'" r="4.5" fill="var(--gold)"/>');
+    p.push('<text class="cx" x="'+(cx+bw*0.65).toFixed(1)+'" y="'+(ey-9).toFixed(1)+'" text-anchor="middle">'+Math.round(a.eff*100)+'%</text>');
+    p.push('<text class="cxl" x="'+cx.toFixed(1)+'" y="'+(Y1+16)+'" text-anchor="middle">'+a.label.toUpperCase()+'</text>');
+    p.push('<text class="cx" x="'+cx.toFixed(1)+'" y="'+(Y1+30)+'" text-anchor="middle">'+a.over.toFixed(1)+' overshoots</text>');
+  });
+  svg.innerHTML = p.join('');
+}
+
+btnCopy.addEventListener('click', async () => {
+  const agg = aggregate();
+  if (!agg.length){ hint('Nothing to copy yet', true); return; }
+  let md = '| Method | n | Median | Best | Reaction | Overshoots | Peak over | Efficiency | Final error | Fails |\n';
+  md += '|---|---|---|---|---|---|---|---|---|---|\n';
+  for (const a of agg) md += '| '+a.label+' | '+a.n+' | '+(a.med/1000).toFixed(2)+'s | '+(a.best/1000).toFixed(2)+
+    's | '+Math.round(a.react)+'ms | '+a.over.toFixed(1)+' | '+Math.round(a.peak)+'px | '+
+    Math.round(a.eff*100)+'% | '+Math.round(a.err)+'px | '+a.fails+' |\n';
+  md += '\ntolerance '+CFG.tolerance+'px · dwell '+CFG.dwell+'ms · '+CFG.trials+' trials/method\n';
+  try { await navigator.clipboard.writeText(md); hint('Copied '+agg.length+' rows to clipboard'); }
+  catch { hint('Clipboard blocked — results are in the table', true); }
+});
+
+renderResults();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
