@@ -1,0 +1,1480 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Say When</title>
+<meta name="description" content="A voice scroll sensor — say up and the page scrolls up, say down and it goes down, say stop and it stops. Every stage from microphone to scrollTop, shown live.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#040506;
+    --ink:#f7f4ed;
+    --muted:rgba(247,244,237,.55);
+    --faint:rgba(247,244,237,.28);
+    --teal:#43d6a0;
+    --gold:#e8cfa0;
+    --edge:rgba(247,244,237,.13);
+    --edge-hi:rgba(247,244,237,.40);
+    --ease:cubic-bezier(.22,.61,.36,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;font-weight:300;
+    overflow-x:hidden;min-height:100dvh;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wash{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 0%, rgba(67,214,160,.07) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 40% at 85% 90%, rgba(232,207,160,.045) 0%, transparent 70%);
+  }
+
+  .chrome{
+    position:relative;z-index:4;
+    display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;
+    padding:clamp(1.4rem,3vw,2.4rem) clamp(1.4rem,4vw,3.2rem);
+  }
+  .mark{display:flex;align-items:center;gap:.75rem;text-decoration:none;color:var(--ink)}
+  .mark .glyph{
+    width:36px;height:36px;flex:0 0 36px;
+    border:1px solid rgba(67,214,160,.5);border-radius:50%;
+    display:grid;place-items:center;
+    font-family:'Cormorant Garamond',serif;font-size:.9rem;color:var(--teal);
+    box-shadow:0 0 24px rgba(67,214,160,.15), inset 0 0 15px rgba(67,214,160,.06);
+    transition:box-shadow .6s var(--ease),border-color .6s var(--ease);
+  }
+  .mark:hover .glyph{border-color:var(--teal);box-shadow:0 0 34px rgba(67,214,160,.3), inset 0 0 18px rgba(67,214,160,.12)}
+  .mark .word{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);line-height:1.5}
+  @media (max-width:640px){ .mark .word{font-size:.54rem;letter-spacing:.12em} }
+  @media (max-width:420px){ .mark .word{display:none} }
+  .hdr-r{display:flex;align-items:center;gap:clamp(1rem,2.4vw,1.7rem)}
+  .navlink{
+    display:inline-flex;align-items:center;gap:.6rem;text-decoration:none;
+    font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--muted);white-space:nowrap;
+    padding:.55rem .95rem;border:1px solid var(--edge);border-radius:100px;
+    transition:color .5s var(--ease),border-color .5s var(--ease),transform .5s var(--ease);
+  }
+  .navlink:hover{color:var(--teal);border-color:rgba(67,214,160,.42);transform:translateY(-2px)}
+  .navlink:focus-visible{outline:1px solid var(--teal);outline-offset:4px}
+  .meta{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.26em;text-transform:uppercase;color:var(--faint);text-align:right;line-height:2}
+  @media (max-width:720px){ .hdr-r .meta{display:none} }
+
+  .sec{
+    position:relative;z-index:3;
+    max-width:min(1120px, 93vw);margin:0 auto;
+    padding:clamp(2rem,6vh,4rem) clamp(1.4rem,4vw,2rem) clamp(4rem,10vh,7rem);
+  }
+  .kicker{
+    font-family:'JetBrains Mono',monospace;
+    font-size:clamp(.56rem,.95vw,.64rem);
+    letter-spacing:.42em;text-transform:uppercase;color:var(--teal);
+    margin-bottom:clamp(1.2rem,2.6vw,1.7rem);
+    display:flex;align-items:center;gap:1.1em;
+  }
+  .kicker::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(67,214,160,.35),transparent)}
+  h1{
+    font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;
+    font-size:clamp(2.4rem,7.5vw,5.4rem);line-height:1;letter-spacing:-.015em;
+    max-width:14ch;
+  }
+  h1 em{font-style:italic;color:var(--gold)}
+  .dek{
+    margin-top:clamp(1rem,2.4vw,1.5rem);max-width:58ch;
+    font-size:clamp(.94rem,1.5vw,1.06rem);line-height:1.66;color:var(--muted);
+  }
+  .dek code,.dek b{font-weight:400;color:var(--ink)}
+  .dek code{
+    font-family:'JetBrains Mono',monospace;font-size:.82em;
+    color:var(--gold);background:rgba(232,207,160,.07);
+    padding:.12em .4em;border-radius:3px;
+  }
+
+  .lab{
+    margin-top:clamp(2rem,4vw,3rem);
+    border:1px solid var(--edge);border-radius:14px;
+    background:rgba(4,5,6,.62);
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    padding:clamp(1.2rem,2.6vw,1.9rem);
+    position:relative;
+  }
+  .lab::before,.lab::after{
+    content:'';position:absolute;width:9px;height:9px;
+    border:1px solid rgba(67,214,160,.4);pointer-events:none;
+  }
+  .lab::before{top:-1px;left:-1px;border-right:0;border-bottom:0}
+  .lab::after{bottom:-1px;right:-1px;border-left:0;border-top:0}
+
+  .rig{
+    display:grid;gap:clamp(1rem,2.4vw,1.7rem);
+    grid-template-columns:minmax(0,1fr) 168px minmax(0,236px);
+    align-items:stretch;
+  }
+  @media (max-width:900px){
+    .rig{grid-template-columns:minmax(0,1fr) 132px}
+    .readouts{grid-column:1 / -1}
+  }
+  @media (max-width:560px){
+    .rig{grid-template-columns:minmax(0,1fr)}
+    .ear{height:180px}
+  }
+
+  .stage{
+    height:min(58vh,460px);overflow-y:auto;overscroll-behavior:contain;
+    border:1px solid var(--edge);border-radius:10px;
+    background:linear-gradient(180deg,rgba(247,244,237,.028),transparent 30%);
+    scrollbar-width:thin;scrollbar-color:rgba(67,214,160,.35) transparent;
+  }
+  .stage:focus-visible{outline:1px solid var(--teal);outline-offset:3px}
+  .stage::-webkit-scrollbar{width:3px}
+  .stage::-webkit-scrollbar-thumb{background:rgba(67,214,160,.35);border-radius:3px}
+  .stage::-webkit-scrollbar-track{background:transparent}
+  .panel{
+    padding:clamp(1.5rem,3.6vw,2.6rem) clamp(1.3rem,3vw,2.2rem);
+    border-bottom:1px solid var(--edge);
+  }
+  .panel:last-of-type{border-bottom:0}
+  .panel .n{
+    font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.3em;
+    color:var(--teal);display:block;margin-bottom:.7rem;
+  }
+  .panel h3{
+    font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;
+    font-size:clamp(1.35rem,3vw,2rem);line-height:1.12;margin-bottom:.6rem;
+  }
+  .panel p{font-size:.9rem;line-height:1.68;color:var(--muted);max-width:46ch}
+  .panel code,.step code,.expl code{
+    font-family:'JetBrains Mono',monospace;font-size:.82em;
+    color:var(--gold);background:rgba(232,207,160,.07);
+    padding:.12em .4em;border-radius:3px;
+  }
+  .stage-end{
+    padding:clamp(2rem,5vw,3.4rem) 1.3rem;text-align:center;
+    font-family:'JetBrains Mono',monospace;font-size:.58rem;
+    letter-spacing:.3em;text-transform:uppercase;color:var(--faint);
+  }
+
+  /* --- the ear: local level meter + listening state --- */
+  .ear{
+    position:relative;border:1px solid var(--edge);border-radius:10px;
+    background:rgba(247,244,237,.02);overflow:hidden;min-height:220px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;
+    padding:1rem .8rem;
+  }
+  .bars{display:flex;align-items:flex-end;gap:3px;height:74px}
+  .bars i{
+    display:block;width:5px;border-radius:2px;height:3px;
+    background:linear-gradient(180deg,var(--teal),rgba(67,214,160,.35));
+    transform-origin:50% 100%;will-change:transform;
+  }
+  .earlab{
+    font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--faint);text-align:center;line-height:1.9;
+  }
+  .earlab b{display:block;color:var(--teal);font-weight:500}
+  .earlab b.idle{color:var(--faint)}
+  .pip{
+    width:7px;height:7px;border-radius:50%;background:var(--faint);
+    box-shadow:0 0 0 rgba(67,214,160,0);
+  }
+  .pip.live{background:var(--teal);animation:breathe 2.4s ease-in-out infinite}
+  @keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(67,214,160,.5)}50%{box-shadow:0 0 0 7px rgba(67,214,160,0)}}
+
+  .readouts{display:flex;flex-direction:column;gap:.05rem;justify-content:center}
+  .rd{
+    display:flex;align-items:baseline;justify-content:space-between;gap:1rem;
+    font-family:'JetBrains Mono',monospace;font-size:.6rem;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+    padding:.42rem 0;border-bottom:1px solid rgba(247,244,237,.06);
+  }
+  .rd:last-child{border-bottom:0}
+  .rd b{color:var(--ink);font-weight:500;letter-spacing:.04em;font-variant-numeric:tabular-nums;text-align:right}
+  .rd b.hot{color:var(--teal)}
+  .rd b.warm{color:var(--gold)}
+  .rd b.off{color:var(--faint)}
+  @keyframes cflash{0%{color:var(--gold);text-shadow:0 0 14px rgba(232,207,160,.7)}100%{color:var(--ink);text-shadow:none}}
+  .rd b.fired{animation:cflash .5s var(--ease)}
+
+  /* --- transcript strip --- */
+  .tape{
+    margin-top:clamp(1rem,2.2vw,1.4rem);
+    border:1px solid var(--edge);border-radius:10px;
+    background:rgba(247,244,237,.02);
+    padding:.9rem 1.1rem;min-height:3.3rem;
+    display:flex;align-items:center;gap:.9rem;
+    font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.06em;
+    color:var(--muted);overflow:hidden;
+  }
+  .tape .tl{
+    font-size:.52rem;letter-spacing:.24em;text-transform:uppercase;
+    color:var(--faint);flex:0 0 auto;
+  }
+  .tape .tt{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:rtl;text-align:left}
+  .tape .tt span{direction:ltr;unicode-bidi:embed}
+  .tape .tt em{font-style:normal;color:var(--faint)}      /* interim, not yet final */
+  .tape .tt mark{background:transparent;color:var(--teal);font-weight:500}
+
+  .chips{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:clamp(1rem,2.2vw,1.4rem)}
+  .chip{
+    font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);
+    border:1px solid var(--edge);border-radius:100px;padding:.42rem .8rem;
+    transition:color .3s var(--ease),border-color .3s var(--ease),background .3s var(--ease);
+  }
+  .chip.hit{color:var(--bg);background:var(--teal);border-color:var(--teal)}
+
+  .lab-foot{
+    display:flex;flex-wrap:wrap;align-items:center;gap:1rem;
+    margin-top:clamp(1.1rem,2.4vw,1.6rem);
+    padding-top:clamp(1.1rem,2.4vw,1.6rem);border-top:1px solid var(--edge);
+  }
+  .ctl{
+    display:inline-flex;align-items:center;gap:.85rem;
+    padding:.78rem 1.5rem;border:1px solid var(--edge);border-radius:100px;
+    background:rgba(8,9,11,.4);
+    font-family:'JetBrains Mono',monospace;font-size:.61rem;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--muted);cursor:pointer;
+    position:relative;overflow:hidden;
+    transition:border-color .55s var(--ease),color .55s var(--ease),transform .55s var(--ease);
+  }
+  .ctl::before{
+    content:'';position:absolute;inset:0;z-index:-1;
+    background:linear-gradient(180deg,rgba(67,214,160,.14),rgba(67,214,160,.03));
+    transform:scaleY(0);transform-origin:bottom;transition:transform .55s var(--ease);
+  }
+  .ctl:hover{border-color:var(--edge-hi);color:var(--ink);transform:translateY(-2px)}
+  .ctl:hover::before{transform:scaleY(1)}
+  .ctl:focus-visible{outline:1px solid var(--teal);outline-offset:4px}
+  .ctl[disabled]{cursor:default;opacity:.55;transform:none}
+  .ctl--sm{padding:.6rem 1.05rem;font-size:.56rem;letter-spacing:.18em}
+  .ctl .dot2{width:5px;height:5px;border-radius:50%;flex:0 0 5px;background:var(--faint);transition:background .5s,box-shadow .5s}
+  .ctl.busy .dot2{background:var(--gold);box-shadow:0 0 10px var(--gold);animation:pulse 1.1s ease-in-out infinite}
+  .ctl.live{border-color:rgba(67,214,160,.42);color:var(--teal)}
+  .ctl.live .dot2{background:var(--teal);box-shadow:0 0 12px var(--teal)}
+  @keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+
+  .targ{display:inline-flex;border:1px solid var(--edge);border-radius:100px;overflow:hidden;flex:0 0 auto}
+  .targ button{
+    font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--muted);background:transparent;border:0;
+    padding:.72rem 1.15rem;cursor:pointer;
+    transition:color .4s var(--ease),background .4s var(--ease);
+  }
+  .targ button:hover{color:var(--ink)}
+  .targ button[aria-pressed=true]{background:rgba(67,214,160,.14);color:var(--teal)}
+  .targ button:focus-visible{outline:1px solid var(--teal);outline-offset:-3px}
+
+  .lang{
+    font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--muted);
+    background:rgba(8,9,11,.5);border:1px solid var(--edge);border-radius:100px;
+    padding:.72rem 1rem;cursor:pointer;
+  }
+  .lang:focus-visible{outline:1px solid var(--teal);outline-offset:3px}
+
+  .hint{
+    font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--faint);min-height:1em;
+    opacity:0;transition:opacity .6s var(--ease),color .4s;flex:1 1 240px;
+  }
+  .hint.show{opacity:1}
+  .hint.warn{color:rgba(232,207,160,.9)}
+
+  .switch-row{
+    display:flex;flex-wrap:wrap;align-items:center;gap:.7rem 1.1rem;
+    margin-top:clamp(1.1rem,2.4vw,1.6rem);
+    padding-top:clamp(1.1rem,2.4vw,1.6rem);border-top:1px solid var(--edge);
+  }
+  .switch-row .sl{
+    font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.24em;
+    text-transform:uppercase;color:var(--faint);
+  }
+  .mode-note{
+    font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--faint);flex:1 1 200px;
+  }
+
+  .tune{
+    display:grid;gap:clamp(.9rem,2vw,1.3rem) clamp(1.4rem,3vw,2.4rem);
+    grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    margin-top:clamp(1.1rem,2.4vw,1.6rem);
+    padding-top:clamp(1.1rem,2.4vw,1.6rem);border-top:1px solid var(--edge);
+  }
+  .ctl-row{display:flex;flex-direction:column;gap:.5rem}
+  .ctl-lab{
+    display:flex;align-items:baseline;justify-content:space-between;gap:1rem;
+    font-family:'JetBrains Mono',monospace;
+    font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+  }
+  .ctl-lab b{color:var(--teal);font-weight:500;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+  .ctl-row input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:2px;
+    background:var(--edge-hi);border-radius:2px;outline:none;cursor:pointer;
+  }
+  .ctl-row input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+    background:var(--teal);border:2px solid var(--bg);cursor:grab;
+    box-shadow:0 0 12px rgba(67,214,160,.55);
+  }
+  .ctl-row input[type=range]::-moz-range-thumb{
+    width:13px;height:13px;border-radius:50%;
+    background:var(--teal);border:2px solid var(--bg);cursor:grab;
+  }
+  .ctl-row input[type=range]:focus-visible{outline:2px solid var(--teal);outline-offset:6px}
+
+  /* --- fixed HUD --- */
+  #hud{
+    position:fixed;right:clamp(1rem,3vw,2rem);bottom:clamp(1rem,3vw,2rem);z-index:30;
+    display:none;align-items:center;gap:clamp(.7rem,1.6vw,1.1rem);
+    padding:.65rem .65rem .65rem 1.05rem;
+    border:1px solid rgba(67,214,160,.32);border-radius:12px;
+    background:rgba(4,5,6,.88);
+    backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+    box-shadow:0 12px 44px rgba(0,0,0,.66);
+    font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);
+  }
+  #hud.on{display:flex}
+  #hud .hz{min-width:5.4em;color:var(--teal)}
+  #hud .hz.idle{color:var(--faint)}
+  #hud .hbar{width:clamp(48px,9vw,84px);height:2px;border-radius:2px;background:rgba(247,244,237,.14);overflow:hidden}
+  #hud .hbar i{display:block;height:100%;width:0;background:var(--teal)}
+  #hud .hstop{
+    border:1px solid rgba(232,207,160,.4);background:transparent;border-radius:100px;
+    color:var(--gold);font-family:inherit;font-size:.56rem;letter-spacing:.18em;
+    text-transform:uppercase;padding:.5rem .85rem;cursor:pointer;
+    transition:background .4s var(--ease);
+  }
+  #hud .hstop:hover{background:rgba(232,207,160,.14)}
+  #hud .hstop:focus-visible{outline:1px solid var(--gold);outline-offset:2px}
+
+  /* --- explainers --- */
+  .expl{margin-top:clamp(4rem,10vh,7rem)}
+  .expl h2{
+    font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;
+    font-size:clamp(1.7rem,4vw,2.9rem);line-height:1.08;letter-spacing:-.012em;
+    max-width:20ch;
+  }
+  .expl > p{
+    margin-top:clamp(.9rem,2vw,1.2rem);max-width:58ch;
+    font-size:clamp(.9rem,1.4vw,1rem);line-height:1.7;color:var(--muted);
+  }
+  .chain{
+    display:grid;gap:clamp(.6rem,1.4vw,.9rem);margin-top:clamp(1.8rem,4vw,2.6rem);
+    grid-template-columns:repeat(auto-fit,minmax(224px,1fr));
+  }
+  .step{
+    background:rgba(247,244,237,.018);
+    border:1px solid var(--edge);border-radius:10px;
+    padding:clamp(1.1rem,2.4vw,1.5rem);
+  }
+  .step .sn{
+    font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.28em;
+    color:var(--teal);display:block;margin-bottom:.75rem;
+  }
+  .step h3{font-family:'Inter',sans-serif;font-weight:400;font-size:.98rem;line-height:1.3;margin-bottom:.5rem}
+  .step p{font-size:.82rem;line-height:1.62;color:var(--muted)}
+  .step .io{
+    display:block;margin-top:.85rem;padding-top:.7rem;
+    border-top:1px solid rgba(247,244,237,.07);
+    font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;color:var(--faint);
+  }
+  .step .io b{color:var(--gold);font-weight:500}
+
+  .ways{margin-top:clamp(1.8rem,4vw,2.6rem);overflow-x:auto}
+  .ways table{border-collapse:collapse;width:100%;min-width:520px}
+  .ways th,.ways td{
+    text-align:left;padding:.8rem 1rem;vertical-align:top;
+    border-bottom:1px solid var(--edge);font-size:.84rem;line-height:1.6;
+  }
+  .ways th{
+    font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.24em;
+    text-transform:uppercase;color:var(--teal);font-weight:400;
+    border-bottom-color:rgba(67,214,160,.28);
+  }
+  .ways td{color:var(--muted)}
+  .ways td:first-child{color:var(--teal);white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:.76rem}
+  .ways td em{font-style:normal;color:var(--faint)}
+
+  .note{
+    margin-top:clamp(1.4rem,3vw,2rem);font-size:.84rem;line-height:1.7;
+    color:var(--faint);max-width:66ch;
+  }
+  .note b{color:var(--muted);font-weight:400}
+  .note.flag{
+    border-left:2px solid rgba(232,207,160,.45);padding-left:1.1rem;
+    color:var(--muted);
+  }
+  .note.flag b{color:var(--gold)}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+  }
+</style>
+</head>
+<body>
+<div class="wash"></div>
+
+<header class="chrome">
+  <a class="mark" href="index.html" aria-label="Back to Brand Vantage — Web Developer">
+    <span class="glyph" aria-hidden="true">SM</span>
+    <span class="word">&larr;&nbsp;Brand&nbsp;Vantage &middot; Web&nbsp;Developer</span>
+  </a>
+  <div class="hdr-r">
+    <a class="navlink" href="hand-scroll.html">Hand</a>
+    <a class="navlink" href="touch-scroll.html">Touch</a>
+    <p class="meta">Voice&nbsp;scroll&nbsp;sensor<br>Microphone&nbsp;&middot;&nbsp;no&nbsp;mouse</p>
+  </div>
+</header>
+
+<main class="sec">
+  <p class="kicker">Appendix &mdash; input</p>
+  <h1>Scrolling by <em>saying so</em></h1>
+  <p class="dek">
+    Say <b>&ldquo;up&rdquo;</b> and this page scrolls up. Say <b>&ldquo;down&rdquo;</b> and it
+    goes down. It keeps going until you say <b>&ldquo;stop&rdquo;</b> &mdash; because speech
+    arrives with a delay of several hundred milliseconds, a word is a far better fit for setting a
+    direction than for nudging a distance. <b>&ldquo;Faster&rdquo;</b> and
+    <b>&ldquo;slower&rdquo;</b> change pace, <b>&ldquo;top&rdquo;</b> and
+    <b>&ldquo;bottom&rdquo;</b> jump to the ends. Every stage is on the right, from microphone
+    level to the pixels per second going into <code>scrollTop</code>.
+  </p>
+
+  <section class="lab" aria-label="Voice scroll sensor">
+    <div class="rig">
+
+      <div class="stage" id="stage" tabindex="0" aria-label="Scrollable content driven by voice">
+        <article class="panel">
+          <span class="n">01</span>
+          <h3>A word is not a button</h3>
+          <p>Speech recognition returns its first guess a few hundred milliseconds after you start
+          speaking, and revises it afterwards. Anything mapped to a word inherits that delay, so
+          commands here set a <em>state</em> that persists &mdash; a direction to keep going in
+          &mdash; rather than a one-shot nudge you would have to repeat.</p>
+        </article>
+        <article class="panel">
+          <span class="n">02</span>
+          <h3>Interim results are the whole game</h3>
+          <p>Waiting for a final transcript costs roughly a second, most of it spent waiting for
+          you to stop talking. Acting on interim results cuts that to a few hundred milliseconds
+          &mdash; at the price of guesses that get revised under you, which is why every word is
+          consumed exactly once.</p>
+        </article>
+        <article class="panel">
+          <span class="n">03</span>
+          <h3>Continuous recognition is not continuous</h3>
+          <p>Chrome ends the session on its own after a stretch of silence, quietly, with no error.
+          A voice interface that does not restart itself appears to work perfectly and then stops
+          responding a minute later, which is a far worse failure than never starting.</p>
+        </article>
+        <article class="panel">
+          <span class="n">04</span>
+          <h3>The meter is local, the words are not</h3>
+          <p>The level bars come from an <code>AnalyserNode</code> running on your machine, which
+          is why they respond instantly. The transcript comes back from a server. Seeing the bars
+          move while no words appear tells you which half of the chain is struggling.</p>
+        </article>
+        <article class="panel">
+          <span class="n">05</span>
+          <h3>Every word is consumed once</h3>
+          <p>Interim results arrive as a growing string &mdash; <code>"up"</code>, then
+          <code>"up down"</code> &mdash; re-delivering earlier words each time. Counting how many
+          tokens of each result have already been acted on is what stops a single
+          &ldquo;up&rdquo; from firing five times as the guess is refined.</p>
+        </article>
+        <article class="panel">
+          <span class="n">06</span>
+          <h3>Stop has to be the easy word</h3>
+          <p>It is the one command you may need in a hurry, so it is matched from the widest set
+          of synonyms, and Esc does the same thing without speaking. A control you cannot cancel
+          quickly is not a control.</p>
+        </article>
+        <div class="stage-end">End &mdash; say &ldquo;top&rdquo; to go back</div>
+      </div>
+
+      <div class="ear" id="ear">
+        <span class="pip" id="pip"></span>
+        <div class="bars" id="bars" aria-hidden="true"></div>
+        <p class="earlab">Microphone<b id="earState" class="idle">Off</b></p>
+        <p class="earlab" id="floorLab">Floor &mdash;</p>
+      </div>
+
+      <div class="readouts">
+        <div class="rd"><span>State</span><b id="rState" class="off">Idle</b></div>
+        <div class="rd"><span>Last&nbsp;word</span><b id="rWord" class="off">&mdash;</b></div>
+        <div class="rd"><span>Confidence</span><b id="rConf" class="off">&mdash;</b></div>
+        <div class="rd"><span>Latency</span><b id="rLat" class="off">&mdash;</b></div>
+        <div class="rd"><span>Direction</span><b id="rDir" class="off">&mdash;</b></div>
+        <div class="rd"><span>Velocity</span><b id="rVel" class="off">&mdash;</b></div>
+        <div class="rd"><span>Progress</span><b id="rPos">0%</b></div>
+        <div class="rd"><span>Signal&nbsp;/&nbsp;noise</span><b id="rSnr" class="off">&mdash;</b></div>
+        <div class="rd"><span>Gate</span><b id="rGate" class="off">&mdash;</b></div>
+        <div class="rd"><span>Noise&nbsp;rejects</span><b id="rRej" class="off">0</b></div>
+        <div class="rd"><span>Alternatives</span><b id="rAlt" class="off">&mdash;</b></div>
+        <div class="rd"><span>Restarts</span><b id="rRe" class="off">0</b></div>
+      </div>
+
+    </div>
+
+    <div class="tape">
+      <span class="tl">Heard</span>
+      <span class="tt" id="tape"><span><em>&mdash;</em></span></span>
+    </div>
+
+    <div class="chips" id="chips" aria-label="Recognised commands"></div>
+
+    <div class="lab-foot">
+      <button class="ctl" id="enable" type="button"><i class="dot2"></i><span id="btnLabel">Enable microphone</span></button>
+      <div class="targ" role="group" aria-label="What the voice scrolls">
+        <button type="button" id="tPage"  aria-pressed="true">Whole&nbsp;page</button>
+        <button type="button" id="tPanel" aria-pressed="false">Panel&nbsp;only</button>
+      </div>
+      <select class="lang" id="lang" aria-label="Recognition language">
+        <option value="en-US" selected>en-US</option>
+        <option value="en-IN">en-IN</option>
+        <option value="en-GB">en-GB</option>
+        <option value="en-AU">en-AU</option>
+      </select>
+      <p class="hint" id="hint" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="switch-row">
+      <span class="sl">Latency</span>
+      <div class="targ" role="group" aria-label="When to act on a transcript">
+        <button type="button" id="mAcc"  aria-pressed="true">Accurate</button>
+        <button type="button" id="mFast" aria-pressed="false">Fast</button>
+      </div>
+      <span class="sl">Matching</span>
+      <div class="targ" role="group" aria-label="How strictly words are matched">
+        <button type="button" id="mFuzzy" aria-pressed="true">Forgiving</button>
+        <button type="button" id="mExact" aria-pressed="false">Exact</button>
+      </div>
+      <p class="mode-note" id="modeNote">Waits for the final transcript and accepts near misses</p>
+    </div>
+
+    <div class="switch-row">
+      <span class="sl">Noise gate</span>
+      <div class="targ" role="group" aria-label="Reject commands with no speech behind them">
+        <button type="button" id="gOn"  aria-pressed="true">On</button>
+        <button type="button" id="gOff" aria-pressed="false">Off</button>
+      </div>
+      <span class="sl">Suppression</span>
+      <div class="targ" role="group" aria-label="Browser noise suppression">
+        <button type="button" id="nsOn"  aria-pressed="true">On</button>
+        <button type="button" id="nsOff" aria-pressed="false">Off</button>
+      </div>
+      <button class="ctl ctl--sm" id="recal" type="button">Recalibrate room</button>
+      <p class="mode-note" id="noiseNote">Commands need real speech above the room's noise floor</p>
+    </div>
+
+    <div class="tune">
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sGate">Gate threshold <b id="vGate">7 dB</b></label>
+        <input type="range" id="sGate" min="2" max="20" step="1" value="7">
+      </div>
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sHold">Gate hold <b id="vHold">1800 ms</b></label>
+        <input type="range" id="sHold" min="500" max="3500" step="100" value="1800">
+      </div>
+    </div>
+
+    <div class="tune">
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sSpeed">Speed <b id="vSpeed">1400 px/s</b></label>
+        <input type="range" id="sSpeed" min="200" max="4000" step="50" value="1400">
+      </div>
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sRamp">Ramp <b id="vRamp">0.08</b></label>
+        <input type="range" id="sRamp" min="0.02" max="0.4" step="0.01" value="0.08">
+      </div>
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sStep">Faster / slower step <b id="vStep">400 px/s</b></label>
+        <input type="range" id="sStep" min="100" max="1200" step="50" value="400">
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ signal chain ═══════════════════════════════════════════════ -->
+  <section class="expl" id="chain">
+    <p class="kicker">How it works &mdash; the signal chain</p>
+    <h2>Six stages between a word and a scrollbar</h2>
+    <p>
+      Two paths leave the microphone. One stays on this machine and drives the level meter
+      instantly; the other goes to a recognition service and comes back as text, several hundred
+      milliseconds later. Only the second one can tell &ldquo;up&rdquo; from &ldquo;down&rdquo;.
+    </p>
+
+    <div class="chain">
+      <div class="step">
+        <span class="sn">Stage 01</span>
+        <h3>Capture</h3>
+        <p>One <code>getUserMedia</code> stream, shared. The recogniser would open its own, but
+        then the meter could not show you whether the microphone was actually picking anything up.</p>
+        <span class="io">out &rarr; <b>MediaStream</b></span>
+      </div>
+      <div class="step">
+        <span class="sn">Stage 02</span>
+        <h3>Analyse &middot; local</h3>
+        <p>An <code>AnalyserNode</code> gives a running RMS of the waveform, drawn as bars. This
+        path never leaves the machine and never waits for anything.</p>
+        <span class="io">out &rarr; <b>level</b> &middot; 0&ndash;1</span>
+      </div>
+      <div class="step">
+        <span class="sn">Stage 03</span>
+        <h3>Recognise &middot; remote</h3>
+        <p><code>SpeechRecognition</code> in continuous mode with interim results on. This is the
+        stage that needs a network and the stage that sets the latency floor.</p>
+        <span class="io">out &rarr; <b>transcript</b></span>
+      </div>
+      <div class="step">
+        <span class="sn">Stage 04</span>
+        <h3>Tokenise</h3>
+        <p>The transcript is split into words and matched against a synonym table. Matching whole
+        tokens rather than searching the string keeps &ldquo;up&rdquo; from firing inside
+        &ldquo;upset&rdquo; or &ldquo;supper&rdquo;.</p>
+        <span class="io">out &rarr; <b>tokens[]</b></span>
+      </div>
+      <div class="step">
+        <span class="sn">Stage 05</span>
+        <h3>Consume once</h3>
+        <p>Each result index remembers how many of its tokens have already been acted on, so
+        words re-delivered by later interim updates are skipped rather than re-fired.</p>
+        <span class="io">out &rarr; <b>command</b></span>
+      </div>
+      <div class="step">
+        <span class="sn">Stage 06</span>
+        <h3>Integrate</h3>
+        <p>The command sets a direction; velocity eases toward direction &times; speed and
+        accumulates into <code>scrollTop</code>, stopping itself at either end.</p>
+        <span class="io">out &rarr; <b>scrollTop</b> &middot; px</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ commands ═══════════════════════════════════════════════════ -->
+  <section class="expl" id="commands">
+    <p class="kicker">Vocabulary</p>
+    <h2>What it listens for</h2>
+    <p>
+      Each command accepts several words, because recognisers mishear short ones constantly and a
+      single accepted spelling makes the interface feel broken rather than approximate.
+    </p>
+    <div class="ways">
+      <table>
+        <thead><tr><th>Say</th><th>Effect</th></tr></thead>
+        <tbody>
+          <tr><td>up &middot; <em>upward, upwards, rise, higher</em></td><td>Scroll up until told otherwise</td></tr>
+          <tr><td>down &middot; <em>downward, downwards, lower</em></td><td>Scroll down until told otherwise</td></tr>
+          <tr><td>stop &middot; <em>halt, freeze, pause, wait, enough</em></td><td>Stop &mdash; also bound to Esc</td></tr>
+          <tr><td>faster &middot; <em>quicker, quickly, speed</em></td><td>Increase speed by one step</td></tr>
+          <tr><td>slower &middot; <em>slow, slowly, gentle</em></td><td>Decrease speed by one step</td></tr>
+          <tr><td>top &middot; <em>beginning, start, home</em></td><td>Glide to the very top</td></tr>
+          <tr><td>bottom &middot; <em>end, finish</em></td><td>Glide to the very bottom</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ═══ accuracy ═══════════════════════════════════════════════════ -->
+  <section class="expl" id="accuracy">
+    <p class="kicker">Accuracy</p>
+    <h2>The words this needs are the words recognisers are worst at</h2>
+    <p>
+      &ldquo;Up&rdquo; and &ldquo;down&rdquo; are single syllables carrying almost no acoustic
+      information, and the recogniser is running a language model built for dictation &mdash; one
+      that has never seen anyone say &ldquo;up&rdquo; on its own and would much rather hear
+      &ldquo;app&rdquo;, &ldquo;cup&rdquo; or &ldquo;hop&rdquo;, all of which are more probable in
+      ordinary English. Four things push back against that, and they stack.
+    </p>
+
+    <div class="chain">
+      <div class="step">
+        <span class="sn">Fix 01</span>
+        <h3>Read every alternative</h3>
+        <p>The recogniser is asked for six guesses instead of one, and all six are scanned for a
+        command. For short words the right answer is very often the second or third &mdash; it
+        simply scored lower than a longer real word. The <b>Alternatives</b> readout shows which
+        one won: a pick consistently above&nbsp;#1 means the top guess cannot be trusted.</p>
+        <span class="io">was &rarr; <b>1 guess</b> &middot; now &rarr; <b>6</b></span>
+      </div>
+      <div class="step">
+        <span class="sn">Fix 02</span>
+        <h3>Wait for the final transcript</h3>
+        <p>Interim results are the first thing the recogniser thinks of, and they get revised
+        constantly. Acting only on finals costs roughly half a second and removes most misfires.
+        That is the <b>Latency</b> switch, and it now defaults to Accurate &mdash; switch it to
+        Fast if you would rather have the speed back.</p>
+        <span class="io">cost &rarr; <b>~500ms</b></span>
+      </div>
+      <div class="step">
+        <span class="sn">Fix 03</span>
+        <h3>Accept near misses</h3>
+        <p>A table of substitutions actually observed in testing &mdash; <code>app</code>,
+        <code>cup</code>, <code>hop</code> for up; <code>dawn</code>, <code>town</code>,
+        <code>done</code> for down &mdash; plus edit-distance matching for longer words. Only
+        words of four letters or more get fuzzy treatment: at three letters a single edit reaches
+        half the vocabulary.</p>
+        <span class="io">switch &rarr; <b>Forgiving / Exact</b></span>
+      </div>
+      <div class="step">
+        <span class="sn">Fix 04</span>
+        <h3>Protect &ldquo;stop&rdquo;</h3>
+        <p>&ldquo;Stop&rdquo; and &ldquo;top&rdquo; differ by one dropped consonant, and confusing
+        them is uniquely bad: you ask it to halt and it flings you to the top of the document. So
+        <code>top</code> is only honoured when <em>no</em> alternative heard <code>stop</code>.
+        The dangerous direction of the ambiguity is closed off.</p>
+        <span class="io">tie &rarr; <b>stop wins</b></span>
+      </div>
+    </div>
+
+    <p style="margin-top:clamp(1.4rem,3vw,2rem)">
+      There is also a plain setting worth checking before blaming any of the above: the
+      <b>language</b>. Matching an Indian or British speaker against <code>en-US</code> loses
+      accuracy on vowels for no reason at all, and &ldquo;down&rdquo; is mostly vowel. The page
+      now starts on your browser's own English variant when it has one, and the selector sits
+      next to the microphone button.
+    </p>
+  </section>
+
+  <!-- ═══ noise ══════════════════════════════════════════════════════ -->
+  <section class="expl" id="noise">
+    <p class="kicker">Noise</p>
+    <h2>You cannot clean the audio the recogniser hears</h2>
+    <p>
+      This is the constraint everything here is built around. <code>SpeechRecognition</code> opens
+      its own microphone capture inside the browser and offers no way to hand it a processed
+      stream &mdash; there is no input to attach a filter graph to. So the usual approach, denoise
+      the audio and pass it along, is simply not available. What is available is three things that
+      work around it.
+    </p>
+
+    <div class="chain">
+      <div class="step">
+        <span class="sn">Layer 01</span>
+        <h3>Ask the browser to do it</h3>
+        <p>The capture is opened with <code>noiseSuppression</code>,
+        <code>echoCancellation</code> and <code>autoGainControl</code> named explicitly rather
+        than left to defaults. These run inside WebRTC's own processing chain, upstream of
+        everything, and are the only denoising that reaches the recogniser at all.</p>
+        <span class="io">reaches &rarr; <b>recogniser</b></span>
+      </div>
+      <div class="step">
+        <span class="sn">Layer 02</span>
+        <h3>Band-limit before measuring</h3>
+        <p>A highpass at 85&nbsp;Hz and a lowpass at 4&nbsp;kHz bracket the speech band. Fan hum,
+        traffic and desk thumps live below that and would otherwise sit in the measured noise
+        floor as though they were voice &mdash; pushing the gate threshold up until quiet words
+        stopped registering.</p>
+        <span class="io">reaches &rarr; <b>meter, gate</b></span>
+      </div>
+      <div class="step">
+        <span class="sn">Layer 03</span>
+        <h3>Gate the commands, not the audio</h3>
+        <p>The room is sampled for 1.3&nbsp;s at startup and its 60th percentile becomes the noise
+        floor. A command is only accepted if speech rose a set margin above that floor recently
+        enough to have produced the transcript. Noise the recogniser hallucinated words from is
+        counted and dropped.</p>
+        <span class="io">reaches &rarr; <b>decisions</b></span>
+      </div>
+    </div>
+
+    <p style="margin-top:clamp(1.4rem,3vw,2rem)">
+      The gate consults <em>when</em> speech last happened rather than the level at this instant,
+      because a final transcript lands several hundred milliseconds after the speaker stopped
+      &mdash; testing the microphone at the moment a command arrives would reject every real word.
+      The floor also tracks slowly downward whenever the input sits below it, so a room that goes
+      quiet is followed automatically, while speech can never drag it up.
+    </p>
+    <p>
+      <b style="color:var(--muted);font-weight:400">Reading the numbers.</b> <b>Signal / noise</b>
+      shows how far above the floor you currently are &mdash; if speaking normally does not push it
+      past the gate threshold, move closer or recalibrate. <b>Noise rejects</b> counts commands
+      dropped for having no speech behind them; a number that climbs while the room is empty means
+      the floor was calibrated during noise, and <b>Recalibrate room</b> fixes it.
+    </p>
+  </section>
+
+  <!-- ═══ the restart problem ════════════════════════════════════════ -->
+  <section class="expl" id="restart">
+    <p class="kicker">The failure everyone ships</p>
+    <h2>Continuous recognition stops on its own</h2>
+    <p>
+      Setting <code>continuous = true</code> does not mean the session runs forever. Chrome ends
+      it after a stretch of silence and fires <code>onend</code> with no error at all &mdash; so a
+      voice interface that does not restart itself works beautifully for about a minute and then
+      goes deaf, with nothing on screen to say why.
+    </p>
+    <p>
+      Restarting naively creates the opposite failure. If the microphone is blocked or the network
+      is down, <code>onend</code> fires immediately every time, and an unconditional restart
+      becomes a tight loop hammering the service. So restarts here are counted and spaced: a
+      normal silence timeout restarts almost at once, while repeated ends inside a second back off
+      progressively. The <b>Restarts</b> readout exposes the count, because a number that climbs
+      steadily while you are talking is the signature of a recogniser that cannot reach its
+      service.
+    </p>
+  </section>
+
+  <p class="note flag">
+    <b>This one is not private, and the difference matters.</b> The hand sensor ran its model
+    entirely on your machine &mdash; no video ever left the page. Speech recognition in Chrome
+    does not work that way: audio is streamed to Google's servers for transcription, which is why
+    it needs a network connection and why it can stop working without warning. The level meter is
+    local, the words are not. Nothing is recorded or stored by this page, but the audio does leave
+    your machine while the microphone is on.
+  </p>
+
+  <p class="note">
+    <b>The microphone never starts on its own.</b> Nothing is requested until you press the
+    button, <b>Esc</b> or the corner <b>Stop</b> ends both the stream and the recogniser, and the
+    wheel, trackpad and arrow keys keep working throughout. Recognition needs Chrome or Edge
+    &mdash; Firefox does not implement the API, and the page says so rather than appearing broken.
+  </p>
+</main>
+
+<div id="hud" role="status" aria-live="off">
+  <span class="hz idle" id="hZone">Idle</span>
+  <span class="hbar"><i id="hBar"></i></span>
+  <button class="hstop" id="hStop" type="button">Stop &middot; esc</button>
+</div>
+
+<script>
+/* ═══ voice-driven scroll ═════════════════════════════════════════════════
+   Commands set a DIRECTION that persists, rather than nudging by a fixed
+   amount. Speech arrives 300-800ms after you start speaking, so a per-word
+   nudge would need constant repetition and would always land late; a latched
+   direction absorbs the latency, because being 400ms late to start scrolling
+   is barely noticeable while being 400ms late to a nudge is not. */
+
+const $ = id => document.getElementById(id);
+const stage=$('stage'), bars=$('bars'), pip=$('pip'), earState=$('earState'), tape=$('tape');
+const rState=$('rState'), rWord=$('rWord'), rConf=$('rConf'), rLat=$('rLat'),
+      rDir=$('rDir'), rVel=$('rVel'), rPos=$('rPos'), rRe=$('rRe'),
+      rSnr=$('rSnr'), rGate=$('rGate'), rRej=$('rRej'), floorLab=$('floorLab');
+const enableBtn=$('enable'), btnLabel=$('btnLabel'), hintEl=$('hint'), chipsEl=$('chips');
+const hud=$('hud'), hZone=$('hZone'), hBar=$('hBar');
+const tPage=$('tPage'), tPanel=$('tPanel'), langSel=$('lang');
+
+const CFG = { speed:1400, ramp:0.08, step:400, interim:false, fuzzy:true,
+              gate:true, gateDb:7, gateHold:1800,
+              ns:true, ec:true, agc:true };
+let lastAlts = 0, lastPick = 0;
+
+/* Noise handling. Two separate jobs, and only one of them touches recognition:
+     · the browser's own suppressors, asked for at getUserMedia, clean the
+       stream this page analyses;
+     · the gate below rejects COMMANDS that arrive with no real speech behind
+       them, which is what actually stops a television in the background from
+       scrolling the page.
+   What is not possible: feeding a cleaned stream to SpeechRecognition. Chrome
+   opens its own capture internally and offers no way to hand it audio, so the
+   filtering here improves the meter and the gate, never the transcript. */
+let floorDb = -60, curDb = -100, snrDb = 0, lastVoicedAt = 0, rejected = 0;
+let calibrating = false, calSamples = [], calUntil = 0;
+const SPEED_MIN = 150, SPEED_MAX = 5000;
+
+/* Several spellings per command: recognisers mishear short words constantly,
+   and accepting exactly one of them is what makes voice UI feel broken. */
+const COMMANDS = {
+  up:'up', upward:'up', upwards:'up', rise:'up', higher:'up',
+  down:'down', downward:'down', downwards:'down', lower:'down',
+  stop:'stop', halt:'stop', freeze:'stop', pause:'stop', wait:'stop', enough:'stop',
+  faster:'faster', quicker:'faster', quickly:'faster', speed:'faster',
+  slower:'slower', slow:'slower', slowly:'slower', gentle:'slower',
+  top:'top', beginning:'top', start:'top', home:'top',
+  bottom:'bottom', end:'bottom', finish:'bottom'
+};
+const CHIPS = ['up','down','stop','faster','slower','top','bottom'];
+
+/* Recognisers are worst at exactly the words this interface needs: "up" and
+   "down" are one syllable and carry almost no acoustic information, so a
+   language model tuned for dictation hands back a real word that sounds
+   similar instead. These are the substitutions actually observed in testing,
+   which is why the list is short and specific rather than generated. */
+const NEAR = {
+  app:'up', ap:'up', cup:'up', hop:'up', ups:'up', upp:'up', ope:'up',
+  hup:'up', yup:'up', op:'up', pup:'up', uh:'up',
+  dawn:'down', don:'down', done:'down', town:'down', doubt:'down',
+  downs:'down', dan:'down', gown:'down', noun:'down',
+  stopp:'stop', stahp:'stop', staap:'stop', stow:'stop', stump:'stop',
+  bottoms:'bottom', bottle:'bottom', button:'bottom',
+  fast:'faster', faster:'faster', foster:'faster',
+  slowed:'slower', sllow:'slower'
+};
+
+/* Levenshtein, capped at 2 — anything further apart is not a mishearing, it
+   is a different word, and accepting it would fire commands at random. */
+function lev(a, b){
+  if (Math.abs(a.length - b.length) > 1) return 9;
+  const m = a.length, n = b.length;
+  let prev = Array.from({length:n+1}, (_,j) => j);
+  for (let i=1;i<=m;i++){
+    const cur = [i];
+    for (let j=1;j<=n;j++){
+      cur[j] = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1] + (a[i-1]===b[j-1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+const FUZZY_KEYS = Object.keys(COMMANDS).filter(k => k.length >= 4);
+
+/* Resolve one spoken token to a command, or null. */
+function resolve(tok){
+  if (COMMANDS[tok]) return COMMANDS[tok];
+  if (!CFG.fuzzy) return null;
+  if (NEAR[tok]) return NEAR[tok];
+  /* Only words of four letters or more get edit-distance matching. At three
+     letters a single edit reaches half the vocabulary — "cat" would be "top". */
+  if (tok.length >= 4){
+    for (const k of FUZZY_KEYS) if (lev(tok, k) <= 1) return COMMANDS[k];
+  }
+  return null;
+}
+
+/* The whole command sequence in one transcript, in spoken order. */
+function commandsIn(text){
+  const out = [];
+  for (const tok of String(text).toLowerCase().split(/\s+/)){
+    const clean = tok.replace(/[^a-z]/g, '');
+    if (!clean) continue;
+    const c = resolve(clean);
+    if (c) out.push(c);
+  }
+  return out;
+}
+
+let rec=null, listening=false, micStream=null, audioCtx=null, analyser=null,
+    freqData=null, timeData=null;
+let dir=0, vel=0, tween=null;
+let restarts=0, lastEnd=0, restartTimer=0;
+let speechStartedAt=0, consumed=new Map(), lastCmdAt=0;
+let target='page';
+
+/* ── controls ─────────────────────────────────────────────────────────── */
+function bind(sliderId, valId, key, fmt){
+  const s=$(sliderId), v=$(valId);
+  const sync=()=>{ CFG[key]=parseFloat(s.value); v.textContent=fmt(CFG[key]); };
+  s.addEventListener('input', sync); sync();
+}
+
+function hint(msg, warn){
+  hintEl.textContent = msg || '';
+  hintEl.classList.toggle('show', !!msg);
+  hintEl.classList.toggle('warn', !!warn);
+}
+
+/* ── scroll target ────────────────────────────────────────────────────── */
+function getTop(){ return target==='page' ? (window.scrollY||document.documentElement.scrollTop) : stage.scrollTop; }
+function getMax(){
+  return target==='page'
+    ? Math.max(0, document.documentElement.scrollHeight - innerHeight)
+    : Math.max(0, stage.scrollHeight - stage.clientHeight);
+}
+function setTop(v){ if (target==='page') window.scrollTo(0, v); else stage.scrollTop = v; }
+
+function setTarget(t){
+  if (t === target) return;
+  target = t; dir = 0; vel = 0; tween = null;
+  tPage.setAttribute('aria-pressed', String(t==='page'));
+  tPanel.setAttribute('aria-pressed', String(t==='panel'));
+  syncHud();
+  hint(t==='page' ? 'Your voice now scrolls the whole page' : 'Your voice now scrolls the demo panel only');
+}
+tPage.addEventListener('click', ()=>setTarget('page'));
+tPanel.addEventListener('click', ()=>setTarget('panel'));
+function syncHud(){ hud.classList.toggle('on', listening && target==='page'); }
+$('hStop').addEventListener('click', ()=>stopListening());
+
+/* ── commands ─────────────────────────────────────────────────────────── */
+function flash(el){ el.classList.remove('fired'); void el.offsetWidth; el.classList.add('fired'); }
+
+function chipHit(name){
+  const c = chipsEl.querySelector('[data-c="'+name+'"]');
+  if (!c) return;
+  c.classList.add('hit');
+  setTimeout(()=>c.classList.remove('hit'), 520);
+}
+
+function runCommand(cmd, word, conf){
+  const now = performance.now();
+  lastCmdAt = now;
+
+  switch (cmd){
+    case 'up':     dir =  1; tween = null; break;
+    case 'down':   dir = -1; tween = null; break;
+    case 'stop':   dir =  0; tween = null; vel = 0; break;
+    case 'faster': CFG.speed = Math.min(SPEED_MAX, CFG.speed + CFG.step);
+                   $('sSpeed').value = CFG.speed; $('vSpeed').textContent = Math.round(CFG.speed)+' px/s'; break;
+    case 'slower': CFG.speed = Math.max(SPEED_MIN, CFG.speed - CFG.step);
+                   $('sSpeed').value = CFG.speed; $('vSpeed').textContent = Math.round(CFG.speed)+' px/s'; break;
+    case 'top':    dir = 0; vel = 0; startTween(0); break;
+    case 'bottom': dir = 0; vel = 0; startTween(getMax()); break;
+  }
+
+  rWord.textContent = word; rWord.className = 'hot'; flash(rWord);
+  /* Which alternative won tells you whether the top guess is trustworthy: a
+     pick consistently above 0 means the recogniser's first choice is wrong. */
+  rAlt.textContent = lastAlts ? ('#' + (lastPick+1) + ' of ' + lastAlts) : '—';
+  rAlt.className   = lastPick > 0 ? 'warm' : (lastAlts ? '' : 'off');
+  rConf.textContent = conf ? Math.round(conf*100)+'%' : '—';
+  rConf.className = conf ? (conf > 0.7 ? 'hot' : 'warm') : 'off';
+  if (speechStartedAt){
+    rLat.textContent = Math.round(now - speechStartedAt)+' ms';
+    rLat.className = 'warm';
+    speechStartedAt = 0;
+  }
+  chipHit(cmd);
+}
+
+/* Jumps are tweened rather than assigned: landing instantly at the far end of
+   a document gives no sense of which way you travelled. */
+function startTween(to){
+  const from = getTop();
+  if (Math.abs(to - from) < 2) return;
+  tween = { from, to, t0: performance.now(), ms: Math.min(1100, 260 + Math.abs(to-from)*0.22) };
+}
+
+/* ── render loop ──────────────────────────────────────────────────────── */
+let lastT = performance.now();
+function tick(now){
+  const dt = Math.min((now - lastT)/1000, 0.05);
+  lastT = now;
+
+  if (tween){
+    const p = Math.min(1, (now - tween.t0)/tween.ms);
+    const e = p<0.5 ? 4*p*p*p : 1 - Math.pow(-2*p+2, 3)/2;   // easeInOutCubic
+    setTop(tween.from + (tween.to - tween.from)*e);
+    if (p >= 1) tween = null;
+  } else {
+    const targetVel = dir * CFG.speed;
+    vel += (targetVel - vel) * CFG.ramp;
+    if (Math.abs(vel) < 0.5) vel = 0;
+
+    if (vel !== 0){
+      const max = getMax();
+      const before = getTop();
+      setTop(Math.max(0, Math.min(max, before - vel*dt)));
+      /* Tolerance rather than equality: scrollTop is fractional on scaled
+         displays while scrollHeight/clientHeight are integer-rounded. */
+      if (Math.abs(getTop() - before) < 0.05 &&
+          ((vel < 0 && before >= max - 1) || (vel > 0 && before <= 1))){
+        vel = 0; dir = 0;                    // arrived at an end; drop the latch
+      }
+    }
+  }
+
+  drawLevel();
+  paintReadouts();
+  requestAnimationFrame(tick);
+}
+
+const BAR_COUNT = 13;
+let barEls = [];
+function buildBars(){
+  bars.innerHTML = '';
+  barEls = Array.from({length:BAR_COUNT}, () => bars.appendChild(document.createElement('i')));
+}
+buildBars();
+
+/* Sample the room for a moment and take the 60th percentile as the floor. The
+   mean is dragged upward by any cough or chair creak during calibration; a low
+   percentile is what a quiet room actually sounds like. */
+function startCalibration(){
+  calibrating = true; calSamples = []; calUntil = performance.now() + 1300;
+  earState.textContent = 'Calibrating'; earState.className = 'warm';
+  hint('Listening to the room — stay quiet for a second');
+}
+function finishCalibration(){
+  calibrating = false;
+  if (calSamples.length){
+    calSamples.sort((a,b) => a-b);
+    floorDb = calSamples[Math.floor(calSamples.length * 0.6)];
+  }
+  floorDb = Math.max(-90, Math.min(-20, floorDb));
+  earState.textContent = 'Live'; earState.className = '';
+  hint('Say “up”, “down”, or “stop”');
+}
+$('recal').addEventListener('click', () => { if (analyser) startCalibration(); });
+
+function measure(){
+  analyser.getByteTimeDomainData(timeData);
+  let sum = 0;
+  for (let i=0;i<timeData.length;i++){ const x = (timeData[i]-128)/128; sum += x*x; }
+  const rms = Math.sqrt(sum / timeData.length);
+  curDb = 20 * Math.log10(Math.max(rms, 1e-6));
+
+  const now = performance.now();
+  if (calibrating){
+    calSamples.push(curDb);
+    if (now > calUntil) finishCalibration();
+    return;
+  }
+
+  snrDb = curDb - floorDb;
+  /* A running "there was real speech recently" flag. The gate consults this
+     rather than the instantaneous level, because a final transcript lands
+     several hundred milliseconds after the speaker stopped. */
+  if (snrDb >= CFG.gateDb) lastVoicedAt = now;
+
+  /* Rooms change — someone starts a fan, you move the laptop. Track the floor
+     slowly downward whenever the input sits below it, so the gate follows a
+     quieter room without ever being dragged up by speech. */
+  if (curDb < floorDb) floorDb += (curDb - floorDb) * 0.02;
+}
+
+/* True when there was speech above the floor recently enough to have produced
+   the transcript we are about to act on. */
+function gateOpen(){
+  if (!CFG.gate) return true;
+  return (performance.now() - lastVoicedAt) <= CFG.gateHold;
+}
+
+function drawLevel(){
+  if (!analyser){ return; }
+  measure();
+  analyser.getByteFrequencyData(freqData);
+  const per = Math.floor(freqData.length / BAR_COUNT);
+  for (let i=0;i<BAR_COUNT;i++){
+    let sum = 0;
+    for (let j=0;j<per;j++) sum += freqData[i*per + j];
+    const v = (sum/per)/255;
+    /* Scaled by transform, never height — height would relayout the flex row
+       thirteen times a frame. */
+    barEls[i].style.transform = 'scaleY(' + (1 + v*24).toFixed(2) + ')';
+  }
+}
+
+function paintReadouts(){
+  const max = getMax();
+  const pct = max > 0 ? Math.round(getTop()/max*100) : 0;
+  rPos.textContent = pct + '%';
+  if (hud.classList.contains('on')) hBar.style.width = pct + '%';
+
+  if (analyser){
+    const open = gateOpen();
+    rSnr.textContent  = (snrDb >= 0 ? '+' : '') + snrDb.toFixed(0) + ' dB';
+    rSnr.className    = snrDb >= CFG.gateDb ? 'hot' : 'off';
+    rGate.textContent = calibrating ? 'Calibrating' : (!CFG.gate ? 'Bypassed' : (open ? 'Open' : 'Closed'));
+    rGate.className   = calibrating ? 'warm' : (!CFG.gate ? 'off' : (open ? 'hot' : 'off'));
+    floorLab.textContent = 'Floor ' + floorDb.toFixed(0) + ' dB';
+  }
+
+  rDir.textContent = dir > 0 ? '▲ Up' : dir < 0 ? '▼ Down' : (tween ? 'Jumping' : 'Held');
+  rDir.className   = dir === 0 && !tween ? 'off' : 'hot';
+  rVel.textContent = Math.abs(vel) < 1 ? '0'
+                   : (vel>0?'+':'−') + (Math.abs(vel)/1000).toFixed(2) + 'k px/s';
+  rVel.className   = Math.abs(vel) < 1 ? 'off' : 'warm';
+
+  hZone.textContent = dir > 0 ? '▲ Up' : dir < 0 ? '▼ Down' : (tween ? 'Jumping' : 'Listening');
+  hZone.className   = dir === 0 && !tween ? 'hz idle' : 'hz';
+}
+
+/* ── transcript ───────────────────────────────────────────────────────── */
+function showTape(text, isFinal){
+  const safe = text.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const marked = safe.replace(/\b([a-z]+)\b/gi, (m) =>
+    COMMANDS[m.toLowerCase()] ? '<mark>'+m+'</mark>' : m);
+  tape.innerHTML = '<span>' + (isFinal ? marked : '<em>'+marked+'</em>') + '</span>';
+}
+
+/* ── recognition ──────────────────────────────────────────────────────── */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function buildRecognizer(){
+  const r = new SR();
+  r.continuous = true;
+  r.interimResults = true;      // always requested; CFG.interim decides whether to act on them
+  r.lang = langSel.value;
+  r.maxAlternatives = 6;        // short commands are often the 2nd or 3rd guess
+
+  r.onaudiostart = () => { rState.textContent = 'Listening'; rState.className = 'hot'; };
+  r.onspeechstart = () => { if (!speechStartedAt) speechStartedAt = performance.now(); };
+
+  r.onresult = (e) => {
+    for (let i = e.resultIndex; i < e.results.length; i++){
+      const res = e.results[i];
+      const top = (res[0].transcript || '').toLowerCase().trim();
+      showTape(top, res.isFinal);
+
+      /* In accurate mode nothing is acted on until the transcript is final.
+         The first guess is where short words get mangled, so waiting costs
+         roughly half a second and removes most of the misfires. */
+      if (!CFG.interim && !res.isFinal) continue;
+
+      /* Read every alternative, not just the best one. For one-syllable
+         commands the correct word is frequently the recogniser's second or
+         third choice, and the top guess is a longer real word that scored
+         better under a dictation language model. */
+      const alts = [];
+      for (let a = 0; a < res.length; a++) alts.push((res[a].transcript || '').toLowerCase().trim());
+
+      let seq = [], picked = 0;
+      for (let a = 0; a < alts.length; a++){
+        const s = commandsIn(alts[a]);
+        if (s.length > seq.length){ seq = s; picked = a; }   // ties keep the earlier, better-scored alternative
+      }
+
+      /* "stop" and "top" differ by one dropped consonant, and getting the
+         wrong one flings you to the top of the document instead of halting.
+         So "top" is only honoured when no alternative heard "stop". */
+      const anyStop = alts.some(t => commandsIn(t).includes('stop'));
+      if (anyStop) seq = seq.map(c => c === 'top' ? 'stop' : c);
+
+      lastAlts = alts.length;
+      lastPick = picked;
+
+      /* Interim results re-deliver earlier words as the guess is refined, so
+         each result index remembers how many commands it has already fired. */
+      const done = consumed.get(i) || 0;
+      const open = gateOpen();
+      for (let t = done; t < seq.length; t++){
+        /* A transcript with no voiced audio behind it came from room noise —
+           a television, a conversation nearby, the recogniser guessing at a
+           door slam. Count it and drop it. */
+        if (!open){ rejected++; rRej.textContent = String(rejected); rRej.className = 'warm'; continue; }
+        runCommand(seq[t], seq[t], res[0].confidence);
+      }
+      consumed.set(i, Math.max(done, seq.length));
+      if (res.isFinal) consumed.delete(i);
+    }
+  };
+
+  r.onerror = (e) => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+      hint('Microphone blocked — allow it from the padlock in the address bar', true);
+      stopListening();
+    } else if (e.error === 'network'){
+      hint('Speech service unreachable — recognition needs a network connection', true);
+    } else if (e.error === 'no-speech' || e.error === 'aborted'){
+      /* Both are routine; onend restarts. */
+    } else {
+      hint('Recognition error: ' + e.error, true);
+    }
+  };
+
+  /* Chrome ends continuous recognition on its own after silence, with no
+     error. Restarting is mandatory — but restarting unconditionally turns a
+     blocked mic into a tight loop, so repeated ends inside a second back off. */
+  r.onend = () => {
+    if (!listening) return;
+    const now = performance.now();
+    const rapid = now - lastEnd < 1000;
+    lastEnd = now;
+    restarts++;
+    rRe.textContent = String(restarts);
+    rRe.className = restarts > 12 ? 'warm' : '';
+    const delay = rapid ? Math.min(3000, 200 * restarts) : 120;
+    rState.textContent = 'Restarting'; rState.className = 'warm';
+    clearTimeout(restartTimer);
+    restartTimer = setTimeout(() => {
+      if (!listening) return;
+      try { rec.start(); } catch { /* already started; harmless */ }
+    }, delay);
+  };
+
+  return r;
+}
+
+enableBtn.addEventListener('click', async () => {
+  if (listening){ stopListening(); return; }
+  if (!SR){
+    hint('This browser has no Speech Recognition API — try Chrome or Edge', true);
+    return;
+  }
+  enableBtn.disabled = true; enableBtn.classList.add('busy');
+  btnLabel.textContent = 'Starting…';
+  try {
+    hint('Allow microphone access when your browser asks');
+    /* Ask the browser's own WebRTC processing to do the heavy lifting. These
+       are usually on by default, but defaults are not a contract — naming them
+       is what makes the behaviour the same on every machine. */
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        noiseSuppression: CFG.ns,
+        echoCancellation: CFG.ec,
+        autoGainControl:  CFG.agc,
+        channelCount: 1
+      },
+      video: false
+    });
+
+    /* Local meter, so you can see the mic is live even while the recogniser
+       has nothing to say. */
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.72;
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    timeData = new Uint8Array(analyser.fftSize);
+
+    /* Band-limit to speech before measuring. Fan hum, traffic and desk thumps
+       live below 85Hz and would otherwise sit in the noise floor as if they
+       were voice, pushing the gate threshold up and swallowing quiet words. */
+    const src = audioCtx.createMediaStreamSource(micStream);
+    const hp = audioCtx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=85;  hp.Q.value=0.7;
+    const lp = audioCtx.createBiquadFilter(); lp.type='lowpass';  lp.frequency.value=4000; lp.Q.value=0.7;
+    src.connect(hp); hp.connect(lp); lp.connect(analyser);
+
+    startCalibration();
+
+    listening = true; restarts = 0; consumed.clear();
+    rRe.textContent = '0'; rRe.className = '';
+    rec = buildRecognizer();
+    try { rec.start(); } catch {}
+
+    pip.classList.add('live');
+    earState.textContent = 'Live'; earState.className = '';
+    enableBtn.classList.remove('busy'); enableBtn.classList.add('live');
+    enableBtn.disabled = false; btnLabel.textContent = 'Stop microphone';
+    syncHud();
+    hint('Say “up”, “down”, or “stop”');
+  } catch (err) {
+    stopListening();
+    hint((err && err.name === 'NotAllowedError')
+      ? 'Microphone blocked — allow it from the padlock in the address bar'
+      : 'Microphone unavailable (' + ((err && err.name) || 'error') + ')', true);
+  }
+});
+
+function stopListening(){
+  listening = false;
+  clearTimeout(restartTimer);
+  if (rec){ try { rec.onend = null; rec.abort(); } catch {} rec = null; }
+  if (micStream){ micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (audioCtx){ try { audioCtx.close(); } catch {} audioCtx = null; }
+  analyser = null; freqData = null; timeData = null;
+  calibrating = false; calSamples = [];
+  floorDb = -60; curDb = -100; snrDb = 0; lastVoicedAt = 0; rejected = 0;
+  rRej.textContent = '0'; rRej.className = 'off';
+  floorLab.textContent = 'Floor —';
+  for (const b of barEls) b.style.transform = 'scaleY(1)';
+
+  dir = 0; vel = 0; tween = null;
+  consumed.clear(); speechStartedAt = 0;
+  pip.classList.remove('live');
+  earState.textContent = 'Off'; earState.className = 'idle';
+  enableBtn.classList.remove('busy','live'); enableBtn.disabled = false;
+  btnLabel.textContent = 'Enable microphone';
+  rState.textContent = 'Idle'; rState.className = 'off';
+  for (const el of [rWord,rConf,rLat,rDir,rVel,rAlt,rSnr,rGate]){ el.textContent = '—'; el.className = 'off'; }
+  lastAlts = 0; lastPick = 0;
+  tape.innerHTML = '<span><em>—</em></span>';
+  syncHud();
+  hint('');
+}
+
+addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (dir !== 0 || tween){ dir = 0; vel = 0; tween = null; }   // first Esc stops motion
+  else if (listening) stopListening();                          // second ends the mic
+});
+
+/* Changing language needs a fresh recogniser — lang is read at start(). */
+langSel.addEventListener('change', () => {
+  if (!listening) return;
+  try { rec.onend = null; rec.abort(); } catch {}
+  rec = buildRecognizer();
+  try { rec.start(); } catch {}
+  hint('Recognition language set to ' + langSel.value);
+});
+
+addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && listening){
+    stopListening();
+    hint('Microphone released when the tab lost focus');
+  }
+});
+
+/* ── accuracy switches ────────────────────────────────────────────────── */
+const mAcc=$('mAcc'), mFast=$('mFast'), mFuzzy=$('mFuzzy'), mExact=$('mExact'),
+      modeNote=$('modeNote'), rAlt=$('rAlt');
+
+function syncModeNote(){
+  modeNote.textContent =
+    (CFG.interim ? 'Acts on the first guess' : 'Waits for the final transcript') +
+    (CFG.fuzzy   ? ' and accepts near misses' : ' and requires exact words');
+}
+function setInterim(v){
+  CFG.interim = v; consumed.clear();
+  mFast.setAttribute('aria-pressed', String(v));
+  mAcc.setAttribute('aria-pressed', String(!v));
+  syncModeNote();
+}
+function setFuzzy(v){
+  CFG.fuzzy = v;
+  mFuzzy.setAttribute('aria-pressed', String(v));
+  mExact.setAttribute('aria-pressed', String(!v));
+  syncModeNote();
+}
+mFast.addEventListener('click', ()=>setInterim(true));
+mAcc .addEventListener('click', ()=>setInterim(false));
+mFuzzy.addEventListener('click', ()=>setFuzzy(true));
+mExact.addEventListener('click', ()=>setFuzzy(false));
+
+/* ── noise controls ───────────────────────────────────────────────────── */
+const gOn=$('gOn'), gOff=$('gOff'), nsOn=$('nsOn'), nsOff=$('nsOff'), noiseNote=$('noiseNote');
+function setGate(v){
+  CFG.gate = v;
+  gOn.setAttribute('aria-pressed', String(v));
+  gOff.setAttribute('aria-pressed', String(!v));
+  noiseNote.textContent = v
+    ? "Commands need real speech above the room's noise floor"
+    : 'Every recognised command is accepted, noise included';
+}
+gOn.addEventListener('click', ()=>setGate(true));
+gOff.addEventListener('click', ()=>setGate(false));
+
+/* applyConstraints retunes the live track, so suppression can be toggled
+   without dropping the stream and re-prompting for permission. */
+async function setNS(v){
+  CFG.ns = v; CFG.ec = v; CFG.agc = v;
+  nsOn.setAttribute('aria-pressed', String(v));
+  nsOff.setAttribute('aria-pressed', String(!v));
+  const track = micStream && micStream.getAudioTracks()[0];
+  if (!track) return;
+  try {
+    await track.applyConstraints({ noiseSuppression:v, echoCancellation:v, autoGainControl:v });
+    if (analyser) startCalibration();          // the floor just moved
+    hint('Browser noise suppression ' + (v ? 'on' : 'off'));
+  } catch {
+    hint('This microphone does not expose suppression controls', true);
+  }
+}
+nsOn.addEventListener('click', ()=>setNS(true));
+nsOff.addEventListener('click', ()=>setNS(false));
+
+/* ── init ─────────────────────────────────────────────────────────────── */
+bind('sSpeed','vSpeed','speed', n => Math.round(n)+' px/s');
+bind('sRamp', 'vRamp', 'ramp',  n => n.toFixed(2));
+bind('sStep', 'vStep', 'step',  n => Math.round(n)+' px/s');
+bind('sGate', 'vGate', 'gateDb',   n => Math.round(n)+' dB');
+bind('sHold', 'vHold', 'gateHold', n => Math.round(n)+' ms');
+
+chipsEl.innerHTML = CHIPS.map(c => '<span class="chip" data-c="'+c+'">'+c+'</span>').join('');
+syncModeNote();
+
+/* Start on the browser's own English variant when it has one — an Indian or
+   British speaker matched against en-US loses accuracy on vowels for nothing. */
+(function pickLang(){
+  const want = (navigator.language || '').toLowerCase();
+  for (const o of langSel.options){
+    if (o.value.toLowerCase() === want){ langSel.value = o.value; return; }
+  }
+})();
+
+if (!SR){
+  enableBtn.disabled = true;
+  hint('No Speech Recognition API in this browser — try Chrome or Edge', true);
+}
+
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>

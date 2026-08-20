@@ -1,0 +1,1072 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hold Still</title>
+<meta name="description" content="A touch scroll sensor — hold the upper half to scroll up, the lower half to scroll down. Pointer events, touch-action, pressure and fling inertia, all shown live.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=Inter:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#040506;
+    --ink:#f7f4ed;
+    --muted:rgba(247,244,237,.55);
+    --faint:rgba(247,244,237,.28);
+    --teal:#43d6a0;
+    --gold:#e8cfa0;
+    --edge:rgba(247,244,237,.13);
+    --edge-hi:rgba(247,244,237,.40);
+    --ease:cubic-bezier(.22,.61,.36,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:'Inter',system-ui,-apple-system,sans-serif;font-weight:300;
+    overflow-x:hidden;min-height:100dvh;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wash{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(ellipse 60% 50% at 50% 0%, rgba(67,214,160,.07) 0%, transparent 70%),
+      radial-gradient(ellipse 50% 40% at 85% 90%, rgba(232,207,160,.045) 0%, transparent 70%);
+  }
+
+  .chrome{
+    position:relative;z-index:4;
+    display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;
+    padding:clamp(1.4rem,3vw,2.4rem) clamp(1.4rem,4vw,3.2rem);
+  }
+  .mark{display:flex;align-items:center;gap:.75rem;text-decoration:none;color:var(--ink)}
+  .mark .glyph{
+    width:36px;height:36px;flex:0 0 36px;
+    border:1px solid rgba(67,214,160,.5);border-radius:50%;
+    display:grid;place-items:center;
+    font-family:'Cormorant Garamond',serif;font-size:.9rem;color:var(--teal);
+    box-shadow:0 0 24px rgba(67,214,160,.15), inset 0 0 15px rgba(67,214,160,.06);
+    transition:box-shadow .6s var(--ease),border-color .6s var(--ease);
+  }
+  .mark:hover .glyph{border-color:var(--teal);box-shadow:0 0 34px rgba(67,214,160,.3)}
+  .mark .word{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--faint);line-height:1.5}
+  @media (max-width:640px){ .mark .word{font-size:.54rem;letter-spacing:.12em} }
+  @media (max-width:420px){ .mark .word{display:none} }
+  .hdr-r{display:flex;align-items:center;gap:clamp(.7rem,2vw,1.3rem)}
+  .navlink{
+    display:inline-flex;align-items:center;text-decoration:none;
+    font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--muted);white-space:nowrap;
+    padding:.55rem .95rem;border:1px solid var(--edge);border-radius:100px;
+    transition:color .5s var(--ease),border-color .5s var(--ease),transform .5s var(--ease);
+  }
+  .navlink:hover{color:var(--teal);border-color:rgba(67,214,160,.42);transform:translateY(-2px)}
+  .navlink:focus-visible{outline:1px solid var(--teal);outline-offset:4px}
+  .meta{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.26em;text-transform:uppercase;color:var(--faint);text-align:right;line-height:2}
+  @media (max-width:860px){ .hdr-r .meta{display:none} }
+
+  .sec{
+    position:relative;z-index:3;
+    max-width:min(1120px, 93vw);margin:0 auto;
+    padding:clamp(2rem,6vh,4rem) clamp(1.4rem,4vw,2rem) clamp(4rem,10vh,7rem);
+  }
+  .kicker{
+    font-family:'JetBrains Mono',monospace;font-size:clamp(.56rem,.95vw,.64rem);
+    letter-spacing:.42em;text-transform:uppercase;color:var(--teal);
+    margin-bottom:clamp(1.2rem,2.6vw,1.7rem);
+    display:flex;align-items:center;gap:1.1em;
+  }
+  .kicker::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(67,214,160,.35),transparent)}
+  h1{
+    font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;
+    font-size:clamp(2.4rem,7.5vw,5.4rem);line-height:1;letter-spacing:-.015em;max-width:14ch;
+  }
+  h1 em{font-style:italic;color:var(--gold)}
+  .dek{
+    margin-top:clamp(1rem,2.4vw,1.5rem);max-width:58ch;
+    font-size:clamp(.94rem,1.5vw,1.06rem);line-height:1.66;color:var(--muted);
+  }
+  .dek b{font-weight:400;color:var(--ink)}
+  .dek code,.panel code,.step code,.expl code{
+    font-family:'JetBrains Mono',monospace;font-size:.82em;
+    color:var(--gold);background:rgba(232,207,160,.07);
+    padding:.12em .4em;border-radius:3px;
+  }
+
+  .lab{
+    margin-top:clamp(2rem,4vw,3rem);
+    border:1px solid var(--edge);border-radius:14px;
+    background:rgba(4,5,6,.62);
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    padding:clamp(1.2rem,2.6vw,1.9rem);position:relative;
+  }
+  .lab::before,.lab::after{
+    content:'';position:absolute;width:9px;height:9px;
+    border:1px solid rgba(67,214,160,.4);pointer-events:none;
+  }
+  .lab::before{top:-1px;left:-1px;border-right:0;border-bottom:0}
+  .lab::after{bottom:-1px;right:-1px;border-left:0;border-top:0}
+
+  .rig{
+    display:grid;gap:clamp(1rem,2.4vw,1.7rem);
+    grid-template-columns:minmax(0,1fr) 190px minmax(0,236px);
+    align-items:stretch;
+  }
+  @media (max-width:900px){
+    .rig{grid-template-columns:minmax(0,1fr) 150px}
+    .readouts{grid-column:1 / -1}
+  }
+  @media (max-width:560px){
+    .rig{grid-template-columns:minmax(0,1fr)}
+    .pad{height:240px}
+  }
+
+  .stage{
+    height:min(58vh,460px);overflow-y:auto;overscroll-behavior:contain;
+    border:1px solid var(--edge);border-radius:10px;
+    background:linear-gradient(180deg,rgba(247,244,237,.028),transparent 30%);
+    scrollbar-width:thin;scrollbar-color:rgba(67,214,160,.35) transparent;
+  }
+  .stage:focus-visible{outline:1px solid var(--teal);outline-offset:3px}
+  .stage::-webkit-scrollbar{width:3px}
+  .stage::-webkit-scrollbar-thumb{background:rgba(67,214,160,.35);border-radius:3px}
+  .stage::-webkit-scrollbar-track{background:transparent}
+  .panel{padding:clamp(1.5rem,3.6vw,2.6rem) clamp(1.3rem,3vw,2.2rem);border-bottom:1px solid var(--edge)}
+  .panel:last-of-type{border-bottom:0}
+  .panel .n{font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.3em;color:var(--teal);display:block;margin-bottom:.7rem}
+  .panel h3{font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;font-size:clamp(1.35rem,3vw,2rem);line-height:1.12;margin-bottom:.6rem}
+  .panel p{font-size:.9rem;line-height:1.68;color:var(--muted);max-width:46ch}
+  .stage-end{
+    padding:clamp(2rem,5vw,3.4rem) 1.3rem;text-align:center;
+    font-family:'JetBrains Mono',monospace;font-size:.58rem;
+    letter-spacing:.3em;text-transform:uppercase;color:var(--faint);
+  }
+
+  /* --- the pad ─────────────────────────────────────────────────────────
+     touch-action:none is the single most important line on this page. Without
+     it the browser claims the gesture for its own scrolling and pointermove
+     simply stops arriving mid-drag. */
+  .pad{
+    position:relative;height:100%;min-height:260px;
+    border:1px solid var(--edge);border-radius:10px;
+    background:rgba(247,244,237,.02);overflow:hidden;
+    touch-action:none;
+    user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;
+    cursor:ns-resize;
+  }
+  .pad:focus-visible{outline:1px solid var(--teal);outline-offset:3px}
+  .pad.armed{border-color:rgba(67,214,160,.42)}
+  .pad .zone{
+    position:absolute;left:0;right:0;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-size:.55rem;
+    letter-spacing:.26em;text-transform:uppercase;color:var(--faint);
+    transition:background .3s var(--ease),color .3s var(--ease);
+  }
+  .pad .zone.up{top:0;bottom:58%}
+  .pad .zone.dn{top:58%;bottom:0}
+  .pad .zone.hot{color:var(--teal);background:rgba(67,214,160,.07)}
+  .pad .band{
+    position:absolute;left:0;right:0;
+    background:rgba(67,214,160,.05);
+    border-top:1px dashed rgba(67,214,160,.28);
+    border-bottom:1px dashed rgba(67,214,160,.28);
+  }
+  .pad .mid{position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(247,244,237,.1)}
+  /* Contacts are drawn as absolutely-positioned dots moved by transform, so a
+     drag never triggers layout on the pad. */
+  .dot{
+    position:absolute;left:0;top:0;width:44px;height:44px;margin:-22px 0 0 -22px;
+    border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle, rgba(67,214,160,.5) 0%, rgba(67,214,160,.12) 55%, transparent 70%);
+    border:1px solid rgba(67,214,160,.5);
+    will-change:transform;
+  }
+  .pad .fill{
+    position:absolute;left:0;right:0;height:2px;background:var(--gold);
+    box-shadow:0 0 12px rgba(232,207,160,.6);opacity:0;will-change:transform,opacity;
+  }
+  .pad .hintline{
+    position:absolute;left:0;right:0;bottom:8px;text-align:center;
+    font-family:'JetBrains Mono',monospace;font-size:.5rem;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--faint);
+  }
+
+  /* --- fullscreen capture layer --- */
+  #veil{
+    position:fixed;inset:0;z-index:40;display:none;
+    touch-action:none;user-select:none;-webkit-user-select:none;
+    background:linear-gradient(180deg, rgba(67,214,160,.05), transparent 42%, transparent 58%, rgba(67,214,160,.05));
+    border:1px solid rgba(67,214,160,.3);
+    cursor:ns-resize;
+  }
+  #veil.on{display:block}
+  #veil .vz{
+    position:absolute;left:0;right:0;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.34em;
+    text-transform:uppercase;color:rgba(247,244,237,.22);
+  }
+  #veil .vz.up{top:0;height:42%}
+  #veil .vz.dn{bottom:0;height:42%}
+  #veil .vmid{
+    position:absolute;left:0;right:0;top:42%;height:16%;
+    border-top:1px dashed rgba(67,214,160,.25);border-bottom:1px dashed rgba(67,214,160,.25);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.28em;
+    text-transform:uppercase;color:rgba(67,214,160,.45);
+  }
+
+  .readouts{display:flex;flex-direction:column;gap:.05rem;justify-content:center}
+  .rd{
+    display:flex;align-items:baseline;justify-content:space-between;gap:1rem;
+    font-family:'JetBrains Mono',monospace;font-size:.6rem;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+    padding:.42rem 0;border-bottom:1px solid rgba(247,244,237,.06);
+  }
+  .rd:last-child{border-bottom:0}
+  .rd b{color:var(--ink);font-weight:500;letter-spacing:.04em;font-variant-numeric:tabular-nums;text-align:right}
+  .rd b.hot{color:var(--teal)}
+  .rd b.warm{color:var(--gold)}
+  .rd b.off{color:var(--faint)}
+
+  /* --- environment strip: is touch input actually available? --- */
+  .env{
+    display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .7rem;
+    margin-top:clamp(1rem,2.2vw,1.4rem);
+    padding:.75rem .9rem;border:1px solid var(--edge);border-radius:10px;
+    background:rgba(247,244,237,.02);
+  }
+  .everdict{
+    font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--gold);flex:1 1 100%;
+  }
+  .everdict.ok{color:var(--teal)}
+  .echip{
+    font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--faint);
+    border:1px solid var(--edge);border-radius:100px;padding:.34rem .7rem;
+  }
+  .echip b{color:var(--muted);font-weight:500;margin-left:.45em}
+  .echip.on{border-color:rgba(67,214,160,.4)}
+  .echip.on b{color:var(--teal)}
+
+  .lab-foot{
+    display:flex;flex-wrap:wrap;align-items:center;gap:1rem;
+    margin-top:clamp(1.1rem,2.4vw,1.6rem);
+    padding-top:clamp(1.1rem,2.4vw,1.6rem);border-top:1px solid var(--edge);
+  }
+  .switch-row{
+    display:flex;flex-wrap:wrap;align-items:center;gap:.7rem 1.1rem;
+    margin-top:clamp(1.1rem,2.4vw,1.6rem);
+    padding-top:clamp(1.1rem,2.4vw,1.6rem);border-top:1px solid var(--edge);
+  }
+  .switch-row .sl{font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.24em;text-transform:uppercase;color:var(--faint)}
+  .mode-note{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);flex:1 1 200px}
+
+  .ctl{
+    display:inline-flex;align-items:center;gap:.85rem;
+    padding:.78rem 1.5rem;border:1px solid var(--edge);border-radius:100px;
+    background:rgba(8,9,11,.4);
+    font-family:'JetBrains Mono',monospace;font-size:.61rem;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--muted);cursor:pointer;
+    position:relative;overflow:hidden;
+    transition:border-color .55s var(--ease),color .55s var(--ease),transform .55s var(--ease);
+  }
+  .ctl::before{
+    content:'';position:absolute;inset:0;z-index:-1;
+    background:linear-gradient(180deg,rgba(67,214,160,.14),rgba(67,214,160,.03));
+    transform:scaleY(0);transform-origin:bottom;transition:transform .55s var(--ease);
+  }
+  .ctl:hover{border-color:var(--edge-hi);color:var(--ink);transform:translateY(-2px)}
+  .ctl:hover::before{transform:scaleY(1)}
+  .ctl:focus-visible{outline:1px solid var(--teal);outline-offset:4px}
+  .ctl.live{border-color:rgba(67,214,160,.42);color:var(--teal)}
+
+  .targ{display:inline-flex;border:1px solid var(--edge);border-radius:100px;overflow:hidden;flex:0 0 auto}
+  .targ button{
+    font-family:'JetBrains Mono',monospace;font-size:.58rem;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--muted);background:transparent;border:0;
+    padding:.72rem 1.15rem;cursor:pointer;
+    transition:color .4s var(--ease),background .4s var(--ease);
+  }
+  .targ button:hover{color:var(--ink)}
+  .targ button[aria-pressed=true]{background:rgba(67,214,160,.14);color:var(--teal)}
+  .targ button:focus-visible{outline:1px solid var(--teal);outline-offset:-3px}
+
+  .hint{
+    font-family:'JetBrains Mono',monospace;font-size:.57rem;letter-spacing:.22em;
+    text-transform:uppercase;color:var(--faint);min-height:1em;
+    opacity:0;transition:opacity .6s var(--ease),color .4s;flex:1 1 240px;
+  }
+  .hint.show{opacity:1}
+  .hint.warn{color:rgba(232,207,160,.9)}
+
+  .tune{
+    display:grid;gap:clamp(.9rem,2vw,1.3rem) clamp(1.4rem,3vw,2.4rem);
+    grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    margin-top:clamp(1.1rem,2.4vw,1.6rem);
+    padding-top:clamp(1.1rem,2.4vw,1.6rem);border-top:1px solid var(--edge);
+  }
+  .tune[hidden]{display:none}
+  .ctl-row{display:flex;flex-direction:column;gap:.5rem}
+  .ctl-lab{
+    display:flex;align-items:baseline;justify-content:space-between;gap:1rem;
+    font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);
+  }
+  .ctl-lab b{color:var(--teal);font-weight:500;letter-spacing:.04em;font-variant-numeric:tabular-nums}
+  .ctl-row input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:2px;
+    background:var(--edge-hi);border-radius:2px;outline:none;cursor:pointer;
+  }
+  .ctl-row input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+    background:var(--teal);border:2px solid var(--bg);cursor:grab;
+    box-shadow:0 0 12px rgba(67,214,160,.55);
+  }
+  .ctl-row input[type=range]::-moz-range-thumb{
+    width:13px;height:13px;border-radius:50%;background:var(--teal);border:2px solid var(--bg);
+  }
+  .ctl-row input[type=range]:focus-visible{outline:2px solid var(--teal);outline-offset:6px}
+
+  #hud{
+    position:fixed;right:clamp(1rem,3vw,2rem);bottom:clamp(1rem,3vw,2rem);z-index:50;
+    display:none;align-items:center;gap:clamp(.7rem,1.6vw,1.1rem);
+    padding:.65rem .65rem .65rem 1.05rem;
+    border:1px solid rgba(67,214,160,.32);border-radius:12px;
+    background:rgba(4,5,6,.88);backdrop-filter:blur(20px);
+    box-shadow:0 12px 44px rgba(0,0,0,.66);
+    font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--muted);
+  }
+  #hud.on{display:flex}
+  #hud .hz{min-width:5.4em;color:var(--teal)}
+  #hud .hz.idle{color:var(--faint)}
+  #hud .hbar{width:clamp(48px,9vw,84px);height:2px;border-radius:2px;background:rgba(247,244,237,.14);overflow:hidden}
+  #hud .hbar i{display:block;height:100%;width:0;background:var(--teal)}
+  #hud .hstop{
+    border:1px solid rgba(232,207,160,.4);background:transparent;border-radius:100px;
+    color:var(--gold);font-family:inherit;font-size:.56rem;letter-spacing:.18em;
+    text-transform:uppercase;padding:.5rem .85rem;cursor:pointer;
+  }
+  #hud .hstop:hover{background:rgba(232,207,160,.14)}
+
+  .expl{margin-top:clamp(4rem,10vh,7rem)}
+  .expl h2{
+    font-family:'Cormorant Garamond',Georgia,serif;font-weight:300;
+    font-size:clamp(1.7rem,4vw,2.9rem);line-height:1.08;letter-spacing:-.012em;max-width:20ch;
+  }
+  .expl > p{
+    margin-top:clamp(.9rem,2vw,1.2rem);max-width:58ch;
+    font-size:clamp(.9rem,1.4vw,1rem);line-height:1.7;color:var(--muted);
+  }
+  .chain{
+    display:grid;gap:clamp(.6rem,1.4vw,.9rem);margin-top:clamp(1.8rem,4vw,2.6rem);
+    grid-template-columns:repeat(auto-fit,minmax(224px,1fr));
+  }
+  .step{background:rgba(247,244,237,.018);border:1px solid var(--edge);border-radius:10px;padding:clamp(1.1rem,2.4vw,1.5rem)}
+  .step .sn{font-family:'JetBrains Mono',monospace;font-size:.55rem;letter-spacing:.28em;color:var(--teal);display:block;margin-bottom:.75rem}
+  .step h3{font-family:'Inter',sans-serif;font-weight:400;font-size:.98rem;line-height:1.3;margin-bottom:.5rem}
+  .step p{font-size:.82rem;line-height:1.62;color:var(--muted)}
+  .step .io{
+    display:block;margin-top:.85rem;padding-top:.7rem;border-top:1px solid rgba(247,244,237,.07);
+    font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.12em;color:var(--faint);
+  }
+  .step .io b{color:var(--gold);font-weight:500}
+
+  .ways{margin-top:clamp(1.8rem,4vw,2.6rem);overflow-x:auto}
+  .ways table{border-collapse:collapse;width:100%;min-width:540px}
+  .ways th,.ways td{text-align:left;padding:.8rem 1rem;vertical-align:top;border-bottom:1px solid var(--edge);font-size:.84rem;line-height:1.6}
+  .ways th{
+    font-family:'JetBrains Mono',monospace;font-size:.56rem;letter-spacing:.24em;
+    text-transform:uppercase;color:var(--teal);font-weight:400;border-bottom-color:rgba(67,214,160,.28);
+  }
+  .ways td{color:var(--muted)}
+  .ways td:first-child{color:var(--ink);white-space:nowrap}
+  .ways tr.pick td{background:rgba(67,214,160,.05)}
+  .ways tr.pick td:first-child{color:var(--teal)}
+
+  .note{margin-top:clamp(1.4rem,3vw,2rem);font-size:.84rem;line-height:1.7;color:var(--faint);max-width:66ch}
+  .note b{color:var(--muted);font-weight:400}
+
+  @media (prefers-reduced-motion:reduce){ *{animation-duration:.01ms !important;transition-duration:.01ms !important} }
+</style>
+</head>
+<body>
+<div class="wash"></div>
+
+<header class="chrome">
+  <a class="mark" href="index.html" aria-label="Back to Brand Vantage — Web Developer">
+    <span class="glyph" aria-hidden="true">SM</span>
+    <span class="word">&larr;&nbsp;Brand&nbsp;Vantage &middot; Web&nbsp;Developer</span>
+  </a>
+  <div class="hdr-r">
+    <a class="navlink" href="hand-scroll.html">Hand</a>
+    <a class="navlink" href="voice-scroll.html">Voice</a>
+    <p class="meta">Touch&nbsp;scroll&nbsp;sensor<br>Pointer&nbsp;events</p>
+  </div>
+</header>
+
+<main class="sec">
+  <p class="kicker">Appendix &mdash; input</p>
+  <h1>Scrolling by <em>holding</em> still</h1>
+  <p class="dek">
+    Press and hold the upper half of the pad and the page scrolls up; hold the lower half and it
+    goes down. How far from the centre you press sets the speed, so a touch near the middle creeps
+    and one near the edge travels &mdash; the same throttle law the hand sensor uses, driven by a
+    finger instead of a palm. A quick <b>tap</b> jumps one screen. Switch to <b>Drag</b> to throw
+    the page around with fling inertia instead, or take over the <b>whole screen</b> as one giant
+    pad. Works with touch, pen and mouse alike, because they are all just pointers.
+  </p>
+
+  <section class="lab" aria-label="Touch scroll sensor">
+    <div class="rig">
+
+      <div class="stage" id="stage" tabindex="0" aria-label="Scrollable content driven by touch">
+        <article class="panel">
+          <span class="n">01</span>
+          <h3>One event model, three input devices</h3>
+          <p>Pointer events unify mouse, pen and touch behind one interface, so nothing here
+          branches on device type. A mouse is simply a pointer that reports
+          <code>pressure&nbsp;0.5</code> and never has a second contact. Writing to touch events
+          alone would have excluded every desktop visitor for no benefit.</p>
+        </article>
+        <article class="panel">
+          <span class="n">02</span>
+          <h3>The browser wants this gesture</h3>
+          <p>By default a drag on a touchscreen belongs to the browser's own scrolling, and it
+          takes it without asking &mdash; <code>pointermove</code> stops arriving partway through
+          and the element goes dead. <code>touch-action: none</code> is what declines that, and it
+          is the one line this page cannot work without.</p>
+        </article>
+        <article class="panel">
+          <span class="n">03</span>
+          <h3>Capture, or lose the finger at the edge</h3>
+          <p>Slide off the pad mid-gesture and events stop unless the pointer was captured.
+          <code>setPointerCapture</code> redirects everything to the original element until
+          release, which is what lets a hold near the edge keep working when your finger drifts
+          outside.</p>
+        </article>
+        <article class="panel">
+          <span class="n">04</span>
+          <h3>Pressure is real, and mostly absent</h3>
+          <p>Pens report genuine pressure, most touchscreens report a constant, and mice always
+          say <code>0.5</code> while a button is down. It is shown here because it is interesting,
+          not because anything depends on it &mdash; building a control that needs pressure
+          excludes almost every device.</p>
+        </article>
+        <article class="panel">
+          <span class="n">05</span>
+          <h3>A tap is a hold that changed its mind</h3>
+          <p>There is no tap event worth having. A tap is defined here as a contact released
+          within 180&nbsp;ms having moved less than 10&nbsp;px &mdash; both conditions matter,
+          since a fast flick satisfies the first and should never be mistaken for a tap.</p>
+        </article>
+        <article class="panel">
+          <span class="n">06</span>
+          <h3>Fling is just velocity you kept</h3>
+          <p>Drag mode samples the last few moves before release and keeps that velocity, then
+          decays it. Sampling the final event alone gives a number that is mostly noise; averaging
+          over roughly the last 100&nbsp;ms is what makes a throw feel like it went where you
+          aimed it.</p>
+        </article>
+        <div class="stage-end">End &mdash; tap the upper half to go back</div>
+      </div>
+
+      <div class="pad" id="pad" tabindex="0" role="application"
+           aria-label="Touch pad: hold upper half to scroll up, lower half to scroll down">
+        <div class="zone up" id="zUp">&#9650;&nbsp;Up</div>
+        <div class="zone dn" id="zDn">&#9660;&nbsp;Down</div>
+        <div class="band" id="band"></div>
+        <div class="mid"></div>
+        <div class="fill" id="fill"></div>
+        <p class="hintline" id="padHint">Press &amp; hold</p>
+      </div>
+
+      <div class="readouts">
+        <div class="rd"><span>Pointer</span><b id="rType" class="off">&mdash;</b></div>
+        <div class="rd"><span>Contacts</span><b id="rCon" class="off">0</b></div>
+        <div class="rd"><span>Pressure</span><b id="rPress" class="off">&mdash;</b></div>
+        <div class="rd"><span>Position</span><b id="rPosY" class="off">&mdash;</b></div>
+        <div class="rd"><span>Zone</span><b id="rZone" class="off">&mdash;</b></div>
+        <div class="rd"><span>Hold</span><b id="rHold" class="off">&mdash;</b></div>
+        <div class="rd"><span>Velocity</span><b id="rVel" class="off">&mdash;</b></div>
+        <div class="rd"><span>Progress</span><b id="rPos">0%</b></div>
+        <div class="rd"><span>Gesture</span><b id="rGest" class="off">&mdash;</b></div>
+      </div>
+
+    </div>
+
+    <div class="env" id="env">
+      <span class="everdict" id="eVerdict">Checking input capabilities…</span>
+      <span class="echip" id="eMtp">maxTouchPoints <b>—</b></span>
+      <span class="echip" id="eOts">ontouchstart <b>—</b></span>
+      <span class="echip" id="eCoarse">pointer:coarse <b>—</b></span>
+      <span class="echip" id="eLast">last pointer <b>—</b></span>
+    </div>
+
+    <div class="lab-foot">
+      <button class="ctl" id="veilBtn" type="button">Use whole screen</button>
+      <div class="targ" role="group" aria-label="What the touch scrolls">
+        <button type="button" id="tPage"  aria-pressed="true">Whole&nbsp;page</button>
+        <button type="button" id="tPanel" aria-pressed="false">Panel&nbsp;only</button>
+      </div>
+      <p class="hint" id="hint" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="switch-row">
+      <span class="sl">Gesture</span>
+      <div class="targ" role="group" aria-label="How touch is read">
+        <button type="button" id="mZone" aria-pressed="true">Zones</button>
+        <button type="button" id="mDrag" aria-pressed="false">Drag</button>
+      </div>
+      <p class="mode-note" id="modeNote">Hold above or below centre &mdash; distance sets the speed</p>
+    </div>
+
+    <div class="tune" id="tuneZone">
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sMax">Max speed <b id="vMax">2400 px/s</b></label>
+        <input type="range" id="sMax" min="400" max="6000" step="50" value="2400">
+      </div>
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sDead">Dead band <b id="vDead">0.10</b></label>
+        <input type="range" id="sDead" min="0.02" max="0.25" step="0.01" value="0.10">
+      </div>
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sExp">Response curve <b id="vExp">1.60</b></label>
+        <input type="range" id="sExp" min="1" max="3" step="0.05" value="1.6">
+      </div>
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sEase">Ramp <b id="vEase">0.14</b></label>
+        <input type="range" id="sEase" min="0.02" max="0.5" step="0.01" value="0.14">
+      </div>
+    </div>
+
+    <div class="tune" id="tuneDrag" hidden>
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sReach">Drag reach <b id="vReach">2.5&times;</b></label>
+        <input type="range" id="sReach" min="0.5" max="6" step="0.1" value="2.5">
+      </div>
+      <div class="ctl-row">
+        <label class="ctl-lab" for="sFric">Fling glide <b id="vFric">0.950</b></label>
+        <input type="range" id="sFric" min="0.86" max="0.985" step="0.005" value="0.95">
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ signal chain ═══════════════════════════════════════════════ -->
+  <section class="expl" id="chain">
+    <p class="kicker">How it works &mdash; the signal chain</p>
+    <h2>Five stages between a finger and a scrollbar</h2>
+    <p>
+      Touch is the shortest of the three chains on this site &mdash; no model to load, no service
+      to call, no latency worth measuring. Which means every problem it has is a problem of
+      <em>ownership</em>: who gets the gesture, and who keeps it.
+    </p>
+
+    <div class="chain">
+      <div class="step">
+        <span class="sn">Stage 01</span>
+        <h3>Claim</h3>
+        <p><code>touch-action: none</code> tells the browser not to interpret drags on this element
+        as scrolling. Declared in CSS rather than by calling <code>preventDefault</code>, so the
+        compositor knows before the gesture starts instead of after.</p>
+        <span class="io">out &rarr; <b>events keep arriving</b></span>
+      </div>
+      <div class="step">
+        <span class="sn">Stage 02</span>
+        <h3>Capture</h3>
+        <p><code>setPointerCapture</code> on <code>pointerdown</code> binds the pointer to the pad
+        until release, so a finger sliding past the edge keeps reporting instead of silently
+        vanishing.</p>
+        <span class="io">out &rarr; <b>pointer id</b></span>
+      </div>
+      <div class="step">
+        <span class="sn">Stage 03</span>
+        <h3>Normalise</h3>
+        <p>Client coordinates become a 0&ndash;1 position within the pad, clamped. Everything
+        downstream works in that space, which is why the pad, the fullscreen veil and any future
+        surface can share one control law.</p>
+        <span class="io">out &rarr; <b>y</b> &middot; 0&ndash;1</span>
+      </div>
+      <div class="step">
+        <span class="sn">Stage 04</span>
+        <h3>Classify</h3>
+        <p>Dead band, then direction, then a response curve &mdash; the same throttle used by the
+        hand sensor. On release, duration and travel decide whether it was a tap, a hold, or a
+        fling worth keeping velocity from.</p>
+        <span class="io">out &rarr; <b>velocity</b> &middot; px/s</span>
+      </div>
+      <div class="step">
+        <span class="sn">Stage 05</span>
+        <h3>Integrate</h3>
+        <p>Velocity eases toward its target and accumulates into <code>scrollTop</code>, stopping
+        itself at either end. Identical to the other two sensors, because by this point the input
+        device has been abstracted away entirely.</p>
+        <span class="io">out &rarr; <b>scrollTop</b> &middot; px</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ touch-action ═══════════════════════════════════════════════ -->
+  <section class="expl" id="claim">
+    <p class="kicker">The one line that matters</p>
+    <h2>Why the gesture stops halfway through</h2>
+    <p>
+      Write this without <code>touch-action: none</code> and it will work perfectly with a mouse,
+      work in the desktop device emulator, and fail on a real phone in a way that looks like a
+      dropped event. You press, you drag, and a few frames in <code>pointermove</code> simply
+      stops. Nothing errors.
+    </p>
+    <p>
+      What happened is that the browser decided the gesture was a scroll. Touch gestures are
+      handled on the compositor thread so that scrolling stays smooth while JavaScript is busy,
+      which means the decision to claim a gesture is made <em>before</em> your handler runs and
+      cannot be undone from inside it. Calling <code>preventDefault</code> on the first
+      <code>pointermove</code> is already too late, and on a passive listener it does nothing at
+      all &mdash; touch listeners default to passive precisely so that scrolling cannot be blocked
+      by slow JavaScript.
+    </p>
+    <p>
+      <code>touch-action</code> is the declaration that resolves this. It is CSS, so the
+      compositor knows the element's intentions before a finger lands. <code>none</code> claims
+      every direction; <code>pan-x</code> would keep horizontal scrolling and claim only the
+      vertical, which is what a carousel wants.
+    </p>
+  </section>
+
+  <!-- ═══ zones vs drag ══════════════════════════════════════════════ -->
+  <section class="expl" id="why">
+    <p class="kicker">Two gestures</p>
+    <h2>Holding and throwing solve different problems</h2>
+    <div class="ways">
+      <table>
+        <thead><tr><th>Gesture</th><th>How it behaves</th><th>Where it wins</th></tr></thead>
+        <tbody>
+          <tr class="pick">
+            <td>Zones<span style="display:block;font-family:'JetBrains Mono',monospace;font-size:.52rem;letter-spacing:.2em;color:var(--teal);margin-top:.3rem">Default</span></td>
+            <td>Press and hold; position from centre sets a steady speed, held as long as you stay down.</td>
+            <td>Long documents and one-handed use. Your thumb never moves, nothing accelerates
+            away from you, and releasing always means stop. This is what a reading control should
+            do.</td>
+          </tr>
+          <tr>
+            <td>Drag</td>
+            <td>The page follows your finger directly, then keeps going when you throw it.</td>
+            <td>Short, precise moves &mdash; nudging a paragraph into view. Familiar because it is
+            what every native list does, but crossing a long document means repeated strokes.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:clamp(1.4rem,3vw,2rem)">
+      The pattern across all three sensors on this site is the same: <b>position for holding,
+      motion for throwing</b>. The hand sensor's Hold and Wave modes are these two ideas driven by
+      a palm; voice reaches the same place with a latched direction, since a word cannot express a
+      distance at all.
+    </p>
+  </section>
+
+  <p class="note">
+    <b>Nothing is captured and nothing leaves the page.</b> Unlike the hand and voice sensors,
+    this one needs no permission, no model and no network &mdash; pointer events are simply
+    delivered. The pad claims gestures only within its own bounds; the rest of the page scrolls
+    normally, and <b>Esc</b> stops motion and releases the fullscreen surface.
+  </p>
+</main>
+
+<div id="veil" aria-hidden="true">
+  <div class="vz up">&#9650;&nbsp;Up</div>
+  <div class="vmid">Release zone &middot; esc to exit</div>
+  <div class="vz dn">&#9660;&nbsp;Down</div>
+</div>
+
+<div id="hud" role="status" aria-live="off">
+  <span class="hz idle" id="hZone">Idle</span>
+  <span class="hbar"><i id="hBar"></i></span>
+  <button class="hstop" id="hStop" type="button">Stop &middot; esc</button>
+</div>
+
+<script>
+/* ═══ touch-driven scroll ═════════════════════════════════════════════════
+   Pointer events only: mouse, pen and touch arrive through the same handlers,
+   so nothing branches on device. Two gestures share one integrator —
+   Zones holds a speed from position, Drag moves the page directly and keeps
+   the throw velocity on release. */
+
+const $ = id => document.getElementById(id);
+const stage=$('stage'), pad=$('pad'), veil=$('veil'), band=$('band'), fill=$('fill');
+const zUp=$('zUp'), zDn=$('zDn'), padHint=$('padHint');
+const rType=$('rType'), rCon=$('rCon'), rPress=$('rPress'), rPosY=$('rPosY'), rZone=$('rZone'),
+      rHold=$('rHold'), rVel=$('rVel'), rPos=$('rPos'), rGest=$('rGest');
+const hud=$('hud'), hZone=$('hZone'), hBar=$('hBar'), hintEl=$('hint');
+const tPage=$('tPage'), tPanel=$('tPanel'), mZone=$('mZone'), mDrag=$('mDrag'),
+      modeNote=$('modeNote'), tuneZone=$('tuneZone'), tuneDrag=$('tuneDrag'), veilBtn=$('veilBtn');
+
+const CFG = { maxV:2400, dead:0.10, exp:1.6, ease:0.14, reach:2.5, fric:0.95 };
+const REACH = 0.42;
+const TAP_MS = 180, TAP_PX = 10;      /* both conditions: a fast flick is not a tap */
+const FLING_WINDOW = 100;             /* ms of history averaged for throw velocity */
+
+let mode='zones', target='page';
+let vel=0, dir=0;
+let pointers=new Map(), primaryId=null, dots=new Map();
+let downAt=0, downY=0, downClientY=0, moved=0, lastGest='—';
+let samples=[];                        /* {t, y} for fling velocity */
+let surface=pad;                       /* whichever element currently owns gestures */
+
+/* ── controls ─────────────────────────────────────────────────────────── */
+function bind(sliderId, valId, key, fmt){
+  const s=$(sliderId), v=$(valId);
+  const sync=()=>{ CFG[key]=parseFloat(s.value); v.textContent=fmt(CFG[key]); if(key==='dead') drawBand(); };
+  s.addEventListener('input', sync); sync();
+}
+function drawBand(){
+  band.style.top = ((0.5-CFG.dead)*100).toFixed(2)+'%';
+  band.style.height = (CFG.dead*2*100).toFixed(2)+'%';
+  zUp.style.bottom = ((0.5+CFG.dead)*100).toFixed(2)+'%';
+  zDn.style.top    = ((0.5+CFG.dead)*100).toFixed(2)+'%';
+}
+function hint(msg, warn){
+  hintEl.textContent = msg || '';
+  hintEl.classList.toggle('show', !!msg);
+  hintEl.classList.toggle('warn', !!warn);
+}
+
+/* ── scroll target ────────────────────────────────────────────────────── */
+function getTop(){ return target==='page' ? (window.scrollY||document.documentElement.scrollTop) : stage.scrollTop; }
+function getMax(){
+  return target==='page'
+    ? Math.max(0, document.documentElement.scrollHeight - innerHeight)
+    : Math.max(0, stage.scrollHeight - stage.clientHeight);
+}
+function setTop(v){ if (target==='page') window.scrollTo(0, v); else stage.scrollTop = v; }
+function setTarget(t){
+  if (t===target) return;
+  target=t; vel=0; dir=0;
+  tPage.setAttribute('aria-pressed', String(t==='page'));
+  tPanel.setAttribute('aria-pressed', String(t==='panel'));
+  syncHud();
+  hint(t==='page' ? 'Touch now scrolls the whole page' : 'Touch now scrolls the demo panel only');
+}
+tPage.addEventListener('click', ()=>setTarget('page'));
+tPanel.addEventListener('click', ()=>setTarget('panel'));
+function syncHud(){ hud.classList.toggle('on', (pointers.size>0 || Math.abs(vel)>1) && target==='page'); }
+$('hStop').addEventListener('click', ()=>{ vel=0; dir=0; releaseAll(); });
+
+function setMode(m){
+  if (m===mode) return;
+  mode=m; vel=0; dir=0; samples=[];
+  mZone.setAttribute('aria-pressed', String(m==='zones'));
+  mDrag.setAttribute('aria-pressed', String(m==='drag'));
+  tuneZone.hidden = m!=='zones';
+  tuneDrag.hidden = m!=='drag';
+  modeNote.textContent = m==='zones'
+    ? 'Hold above or below centre — distance sets the speed'
+    : 'Drag the page directly, throw to fling';
+  padHint.textContent = m==='zones' ? 'Press & hold' : 'Drag to move';
+  pad.style.cursor = m==='zones' ? 'ns-resize' : 'grab';
+}
+mZone.addEventListener('click', ()=>setMode('zones'));
+mDrag.addEventListener('click', ()=>setMode('drag'));
+
+/* ── the control law (Zones) ──────────────────────────────────────────── */
+/* Identical in form to the hand sensor's throttle: offset from centre, dead
+   band, power curve. One law, three input devices. */
+function velocityFor(y){
+  const off = 0.5 - y;
+  const mag = Math.abs(off) - CFG.dead;
+  if (mag <= 0) return 0;
+  const norm = Math.min(1, mag / Math.max(0.02, REACH - CFG.dead));
+  return Math.sign(off) * Math.pow(norm, CFG.exp) * CFG.maxV;
+}
+
+/* ── pointer plumbing ─────────────────────────────────────────────────── */
+function rectOf(el){ return el.getBoundingClientRect(); }
+function normY(clientY, el){
+  const r = rectOf(el);
+  return Math.max(0, Math.min(1, (clientY - r.top) / Math.max(1, r.height)));
+}
+
+function makeDot(id){
+  const d = document.createElement('div');
+  d.className = 'dot';
+  (surface===veil ? veil : pad).appendChild(d);
+  dots.set(id, d);
+  return d;
+}
+function moveDot(id, clientX, clientY){
+  const d = dots.get(id); if (!d) return;
+  const host = surface===veil ? veil : pad;
+  const r = rectOf(host);
+  d.style.transform = 'translate(' + (clientX-r.left).toFixed(1) + 'px,' + (clientY-r.top).toFixed(1) + 'px)';
+}
+function killDot(id){
+  const d = dots.get(id);
+  if (d && d.parentNode) d.parentNode.removeChild(d);
+  dots.delete(id);
+}
+
+function onDown(e){
+  const host = e.currentTarget;
+  surface = host;
+  try { host.setPointerCapture(e.pointerId); } catch {}
+  const y = normY(e.clientY, host);
+  lastPointerType = e.pointerType;
+  pointers.set(e.pointerId, { y, pressure:e.pressure, type:e.pointerType });
+  makeDot(e.pointerId); moveDot(e.pointerId, e.clientX, e.clientY);
+
+  if (primaryId === null){
+    primaryId = e.pointerId;
+    downAt = performance.now(); downY = y; downClientY = e.clientY; moved = 0;
+    samples = [{ t: downAt, y: e.clientY }];
+    if (mode === 'drag'){ vel = 0; pad.style.cursor = 'grabbing'; }
+  }
+  pad.classList.add('armed');
+  syncHud();
+  e.preventDefault();
+}
+
+function onMove(e){
+  if (!pointers.has(e.pointerId)) return;
+  const host = e.currentTarget;
+  const y = normY(e.clientY, host);
+  const p = pointers.get(e.pointerId);
+  p.y = y; p.pressure = e.pressure;
+  moveDot(e.pointerId, e.clientX, e.clientY);
+
+  if (e.pointerId === primaryId){
+    moved = Math.max(moved, Math.abs(e.clientY - downClientY));
+    const now = performance.now();
+
+    if (mode === 'drag'){
+      /* Move the content by the same distance the finger travelled, scaled.
+         Reach above 1 means the page outruns the finger, which is what makes
+         a small screen usable without repeated strokes. */
+      const prev = samples.length ? samples[samples.length-1].y : e.clientY;
+      const dy = e.clientY - prev;
+      const max = getMax();
+      setTop(Math.max(0, Math.min(max, getTop() - dy * CFG.reach)));
+    }
+
+    samples.push({ t: now, y: e.clientY });
+    while (samples.length > 2 && now - samples[0].t > FLING_WINDOW) samples.shift();
+  }
+  e.preventDefault();
+}
+
+function onUp(e){
+  if (!pointers.has(e.pointerId)) return;
+  try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {}
+  pointers.delete(e.pointerId);
+  killDot(e.pointerId);
+
+  if (e.pointerId === primaryId){
+    const now = performance.now();
+    const held = now - downAt;
+
+    /* A tap is short AND still. Testing duration alone would classify a fast
+       flick as a tap, which is exactly the gesture that must not jump. */
+    if (held <= TAP_MS && moved <= TAP_PX){
+      const jump = (target==='page' ? innerHeight : stage.clientHeight) * 0.85;
+      const up = downY < 0.5;
+      const max = getMax();
+      setTop(Math.max(0, Math.min(max, getTop() + (up ? -jump : jump))));
+      vel = 0; lastGest = up ? 'Tap ▲' : 'Tap ▼';
+    } else if (mode === 'drag'){
+      /* Average over the last ~100ms rather than the final event, which is
+         mostly noise. */
+      const first = samples[0], last = samples[samples.length-1];
+      const span = last.t - first.t;
+      /* Browsers coalesce pointermove and can deliver several in one frame
+         with near-identical timestamps. Dividing real travel by a sub-frame
+         span produces a velocity in the millions, which then throws the page
+         to an end instantly. Below one frame there is no measurable speed, so
+         there is no fling — and the result is clamped regardless. */
+      if (span >= 25){
+        const px = (last.y - first.y) / span * 1000;
+        const cap = CFG.maxV * 4;
+        vel = Math.max(-cap, Math.min(cap, px * CFG.reach));
+        lastGest = Math.abs(vel) > 200 ? 'Fling' : 'Drag';
+      } else {
+        vel = 0;
+        lastGest = 'Drag';
+      }
+    } else {
+      lastGest = 'Hold ' + (held/1000).toFixed(1) + 's';
+    }
+
+    primaryId = pointers.size ? pointers.keys().next().value : null;
+    if (primaryId !== null){ downAt = now; downY = pointers.get(primaryId).y; moved = 0; }
+    if (mode === 'drag') pad.style.cursor = 'grab';
+  }
+
+  if (!pointers.size){ pad.classList.remove('armed'); }
+  syncHud();
+}
+
+function releaseAll(){
+  for (const id of [...pointers.keys()]){ killDot(id); }
+  pointers.clear(); primaryId = null;
+  pad.classList.remove('armed');
+  syncHud();
+}
+
+for (const el of [pad, veil]){
+  el.addEventListener('pointerdown', onDown);
+  el.addEventListener('pointermove', onMove);
+  el.addEventListener('pointerup', onUp);
+  el.addEventListener('pointercancel', onUp);
+}
+
+/* ── fullscreen surface ───────────────────────────────────────────────── */
+function setVeil(on){
+  veil.classList.toggle('on', on);
+  veil.setAttribute('aria-hidden', String(!on));
+  veilBtn.classList.toggle('live', on);
+  veilBtn.textContent = on ? 'Release screen' : 'Use whole screen';
+  surface = on ? veil : pad;
+  releaseAll();
+  hint(on ? 'Whole screen is the pad — esc to release' : '');
+}
+veilBtn.addEventListener('click', () => setVeil(!veil.classList.contains('on')));
+
+addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (Math.abs(vel) > 1 || pointers.size){ vel = 0; dir = 0; releaseAll(); }
+  else if (veil.classList.contains('on')) setVeil(false);
+});
+
+/* ── render loop ──────────────────────────────────────────────────────── */
+let lastT = performance.now();
+function tick(now){
+  const dt = Math.min((now - lastT)/1000, 0.05);
+  lastT = now;
+
+  if (mode === 'zones'){
+    let targetVel = 0;
+    if (primaryId !== null && pointers.has(primaryId)){
+      targetVel = velocityFor(pointers.get(primaryId).y);
+      /* A second finger is a deliberate "and quickly" — no extra gesture to
+         learn, and harmless on devices that cannot report one. */
+      if (pointers.size > 1) targetVel *= 1.6;
+    }
+    dir = Math.sign(targetVel);
+    vel += (targetVel - vel) * CFG.ease;
+    if (Math.abs(vel) < 0.5) vel = 0;
+  } else if (!pointers.size){
+    vel *= Math.pow(CFG.fric, dt*60);        /* frame-rate independent decay */
+    if (Math.abs(vel) < 8) vel = 0;
+  } else {
+    vel = 0;                                  /* dragging moves position directly */
+  }
+
+  if (vel !== 0){
+    const max = getMax();
+    const before = getTop();
+    setTop(Math.max(0, Math.min(max, before - vel*dt)));
+    if (Math.abs(getTop() - before) < 0.05 &&
+        ((vel < 0 && before >= max - 1) || (vel > 0 && before <= 1))) vel = 0;
+  }
+
+  paint();
+  probeEnv();
+  requestAnimationFrame(tick);
+}
+
+function paint(){
+  const max = getMax();
+  const pct = max > 0 ? Math.round(getTop()/max*100) : 0;
+  rPos.textContent = pct + '%';
+  if (hud.classList.contains('on')) hBar.style.width = pct + '%';
+
+  const p = primaryId !== null ? pointers.get(primaryId) : null;
+  if (p){
+    const off = 0.5 - p.y, inDead = Math.abs(off) <= CFG.dead;
+    rType.textContent  = p.type;                     rType.className  = 'hot';
+    rCon.textContent   = String(pointers.size);      rCon.className   = pointers.size>1 ? 'warm' : '';
+    rPress.textContent = p.pressure.toFixed(2);      rPress.className = '';
+    rPosY.textContent  = p.y.toFixed(3);             rPosY.className  = '';
+    rZone.textContent  = inDead ? 'Neutral' : (off>0 ? '▲ Up' : '▼ Down');
+    rZone.className    = inDead ? 'off' : 'hot';
+    rHold.textContent  = ((performance.now()-downAt)/1000).toFixed(1)+'s'; rHold.className='';
+    zUp.classList.toggle('hot', !inDead && off>0);
+    zDn.classList.toggle('hot', !inDead && off<0);
+    const h = (surface===veil ? veil : pad).clientHeight;
+    fill.style.opacity = '1';
+    fill.style.transform = 'translateY(' + (p.y*h).toFixed(1) + 'px)';
+  } else {
+    if (rType.textContent !== '—'){
+      for (const el of [rType,rCon,rPress,rPosY,rZone,rHold]){ el.textContent='—'; el.className='off'; }
+      rCon.textContent = '0';
+      zUp.classList.remove('hot'); zDn.classList.remove('hot');
+      fill.style.opacity = '0';
+    }
+  }
+
+  rGest.textContent = lastGest; rGest.className = lastGest==='—' ? 'off' : 'warm';
+  rVel.textContent  = Math.abs(vel) < 1 ? '0' : (vel>0?'+':'−') + (Math.abs(vel)/1000).toFixed(2)+'k px/s';
+  rVel.className    = Math.abs(vel) < 1 ? 'off' : 'warm';
+
+  hZone.textContent = Math.abs(vel) < 1 ? 'Idle' : (vel>0 ? '▲ Up' : '▼ Down');
+  hZone.className   = Math.abs(vel) < 1 ? 'hz idle' : 'hz';
+}
+
+/* ── environment probe ────────────────────────────────────────────────────
+   DevTools' device toolbar rewrites these values live, so the strip is
+   re-read every frame rather than sampled once at load — that is what lets
+   you watch emulation switch on without reloading. */
+const eVerdict=$('eVerdict'), eMtp=$('eMtp'), eOts=$('eOts'), eCoarse=$('eCoarse'), eLast=$('eLast');
+let lastPointerType = null;
+function chip(el, label, val, good){
+  el.innerHTML = label + ' <b>' + val + '</b>';
+  el.classList.toggle('on', !!good);
+}
+function probeEnv(){
+  const mtp = navigator.maxTouchPoints || 0;
+  const ots = 'ontouchstart' in window;
+  const coarse = matchMedia('(any-pointer: coarse)').matches;
+
+  chip(eMtp,    'maxTouchPoints', String(mtp),        mtp > 0);
+  chip(eOts,    'ontouchstart',   ots ? 'yes' : 'no', ots);
+  chip(eCoarse, 'pointer:coarse', coarse ? 'yes':'no', coarse);
+  chip(eLast,   'last pointer',   lastPointerType || '—', lastPointerType === 'touch');
+
+  let msg, ok = false;
+  if (lastPointerType === 'touch'){
+    msg = 'Touch input live — pointerType reports "touch"'; ok = true;
+  } else if (mtp > 0 || ots || coarse){
+    msg = 'Touch capability reported — press the pad to confirm it delivers touch pointers';
+  } else {
+    msg = 'No touch input · DevTools (F12) → device toolbar (Ctrl+Shift+M) to emulate';
+  }
+  if (eVerdict.textContent !== msg){
+    eVerdict.textContent = msg;
+    eVerdict.classList.toggle('ok', ok);
+  }
+}
+
+/* ── init ─────────────────────────────────────────────────────────────── */
+bind('sMax','vMax','maxV',   n => Math.round(n)+' px/s');
+bind('sDead','vDead','dead', n => n.toFixed(2));
+bind('sExp','vExp','exp',    n => n.toFixed(2));
+bind('sEase','vEase','ease', n => n.toFixed(2));
+bind('sReach','vReach','reach', n => n.toFixed(1)+'×');
+bind('sFric','vFric','fric',    n => n.toFixed(3));
+drawBand();
+
+if (!window.PointerEvent){
+  hint('This browser has no Pointer Events — the panel still scrolls normally', true);
+} else if (!navigator.maxTouchPoints){
+  /* No digitiser means no contacts will ever be reported. The control works
+     identically with a held mouse button, but saying so beats letting someone
+     tap a screen that cannot feel them. */
+  hint('No touchscreen — hold with the mouse, or emulate touch with Ctrl+Shift+M');
+  padHint.textContent = 'Click & hold';
+}
+
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
