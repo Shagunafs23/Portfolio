@@ -501,7 +501,7 @@
     <div class="env" id="env">
       <span class="everdict" id="eVerdict">Checking input capabilities…</span>
       <span class="echip" id="eMtp">maxTouchPoints <b>—</b></span>
-      <span class="echip" id="eOts">ontouchstart <b>—</b></span>
+      <span class="echip" id="eOts">hover:none <b>—</b></span>
       <span class="echip" id="eCoarse">pointer:coarse <b>—</b></span>
       <span class="echip" id="eLast">last pointer <b>—</b></span>
     </div>
@@ -1025,18 +1025,22 @@ function chip(el, label, val, good){
 }
 function probeEnv(){
   const mtp = navigator.maxTouchPoints || 0;
-  const ots = 'ontouchstart' in window;
+  /* Deliberately not 'ontouchstart' in window: Chrome leaves that legacy
+     property unset under device emulation, so it reported "no" beside a
+     verdict saying touch was live. hover:none is the honest signal — it
+     flips with emulation and actually means "no hovering pointer here". */
+  const noHover = matchMedia('(hover: none)').matches;
   const coarse = matchMedia('(any-pointer: coarse)').matches;
 
-  chip(eMtp,    'maxTouchPoints', String(mtp),        mtp > 0);
-  chip(eOts,    'ontouchstart',   ots ? 'yes' : 'no', ots);
-  chip(eCoarse, 'pointer:coarse', coarse ? 'yes':'no', coarse);
+  chip(eMtp,    'maxTouchPoints', String(mtp),           mtp > 0);
+  chip(eOts,    'hover:none',     noHover ? 'yes' : 'no', noHover);
+  chip(eCoarse, 'pointer:coarse', coarse ? 'yes':'no',   coarse);
   chip(eLast,   'last pointer',   lastPointerType || '—', lastPointerType === 'touch');
 
   let msg, ok = false;
   if (lastPointerType === 'touch'){
     msg = 'Touch input live — pointerType reports "touch"'; ok = true;
-  } else if (mtp > 0 || ots || coarse){
+  } else if (mtp > 0 || noHover || coarse){
     msg = 'Touch capability reported — press the pad to confirm it delivers touch pointers';
   } else {
     msg = 'No touch input · DevTools (F12) → device toolbar (Ctrl+Shift+M) to emulate';
